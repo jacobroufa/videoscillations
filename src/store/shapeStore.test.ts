@@ -10,12 +10,19 @@ describe('shapeStore', () => {
   it('should have default parameters', () => {
     const { parameters } = useShapeStore.getState()
     expect(parameters.frequency).toBe(8)
-    expect(parameters.color).toBe(180)
+    expect(parameters.color).toBe(0)
     expect(parameters.intensity).toBe(0.8)
     expect(parameters.transparency).toBe(1)
     expect(parameters.rotation).toBe(0)
     expect(parameters.movementDirection).toBe(0)
     expect(parameters.movementSpeed).toBe(0)
+    expect(parameters.gain).toBe(50)
+    expect(parameters.globalColor).toBe(180)
+    expect(parameters.recursiveFeedback).toBe(true)
+    expect(parameters.colorBleeding).toBe(false)
+    expect(parameters.motionTrails).toBe(false)
+    expect(parameters.bloomGlow).toBe(false)
+    expect(parameters.multipleExposure).toBe(false)
   })
 
   it('should update parameters partially', () => {

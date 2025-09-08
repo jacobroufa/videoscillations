@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { lerp, calculateGridDimensions, calculateSphereRadius } from './math'
+import { lerp, calculateGridDimensions, calculateSphereRadius, calculateCircularFieldDimensions } from './math'
 
 describe('math utilities', () => {
   describe('lerp', () => {
@@ -43,6 +43,37 @@ describe('math utilities', () => {
       const radius5 = calculateSphereRadius(1000, 5)
       const radius10 = calculateSphereRadius(1000, 10)
       expect(radius5).toBe(radius10 * 2) // Half the frequency = double the radius
+    })
+
+    it('should handle frequency 0', () => {
+      const result = calculateSphereRadius(1000, 0)
+      expect(result).toBe(2000) // 1000 * 2 - largest possible shapes
+    })
+  })
+
+  describe('calculateCircularFieldDimensions', () => {
+    it('should calculate circular field dimensions for optimal coverage', () => {
+      const result = calculateCircularFieldDimensions(800, 600, 10)
+      const diagonal = Math.sqrt(800 * 800 + 600 * 600)
+      expect(result.spacing).toBe(60) // min(800, 600) / 10
+      expect(result.radius).toBe(diagonal * 0.6)
+      expect(result.tilesX).toBeGreaterThan(0)
+      expect(result.tilesY).toBeGreaterThan(0)
+    })
+
+    it('should handle frequency 0', () => {
+      const result = calculateCircularFieldDimensions(800, 600, 0)
+      expect(result.tilesX).toBe(3)
+      expect(result.tilesY).toBe(3)
+      const expectedDiagonal = Math.sqrt(800 * 800 + 600 * 600)
+      expect(result.spacing).toBe(expectedDiagonal)
+      expect(result.radius).toBe(expectedDiagonal * 0.8)
+    })
+
+    it('should provide adequate coverage for rotation', () => {
+      const result = calculateCircularFieldDimensions(400, 400, 5)
+      const expectedDiagonal = Math.sqrt(400 * 400 + 400 * 400)
+      expect(result.radius).toBe(expectedDiagonal * 0.6)
     })
   })
 })
