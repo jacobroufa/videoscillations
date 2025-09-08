@@ -21,9 +21,12 @@
 - Aim for high test coverage on logic, not rendering
 
 ### 4. Version Control Everything
-- Commit all changes with descriptive messages
+- **COMMIT AFTER EACH USER INSTRUCTION** - Never batch multiple user requests into one commit
+- **Commit immediately** after implementing each piece of user feedback or new instruction
+- Use descriptive commit messages that capture the specific change made
 - Use semantic commit messages when possible
-- Track incremental progress, not just final states
+- Track incremental progress with individual commits, not just final states
+- If implementing multiple sub-tasks from one instruction, commit each sub-task individually
 
 ### 5. Run Tests on Change
 - Tests should run in watch mode alongside the development server
