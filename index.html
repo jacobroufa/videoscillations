@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hypnewcade</title>
+  <style>
+    /* ---- CSS custom properties for UI theming ---- */
+    :root {
+      --ui-bg: rgba(10, 10, 14, 0.78);
+      --ui-border: rgba(255, 255, 255, 0.06);
+      --ui-text: rgba(220, 220, 230, 0.9);
+      --ui-text-dim: rgba(180, 180, 195, 0.6);
+      --ui-accent: rgba(0, 220, 255, 0.8);
+      --ui-accent-dim: rgba(0, 220, 255, 0.3);
+      --ui-btn-bg: rgba(255, 255, 255, 0.07);
+      --ui-btn-hover: rgba(255, 255, 255, 0.14);
+      --ui-font: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      --ui-panel-width: 280px;
+      --ui-transition: 0.35s ease;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* ---- Overlay panel ---- */
+    #synth-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: var(--ui-panel-width);
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+
+      background: var(--ui-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-left: 1px solid var(--ui-border);
+
+      font-family: var(--ui-font);
+      font-size: 11px;
+      color: var(--ui-text);
+
+      padding: 12px 10px 20px;
+      z-index: 1000;
+
+      /* Hidden by default, fade in/out */
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--ui-transition);
+    }
+
+    #synth-panel.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Thin scrollbar */
+    #synth-panel::-webkit-scrollbar {
+      width: 4px;
+    }
+    #synth-panel::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    #synth-panel::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+    }
+
+    /* ---- Section labels ---- */
+    .panel-section {
+      margin-bottom: 10px;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--ui-accent);
+      margin-bottom: 6px;
+      padding-bottom: 3px;
+      border-bottom: 1px solid var(--ui-border);
+    }
+
+    /* ---- Slider rows ---- */
+    .slider-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 42px;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+
+    .slider-label {
+      font-size: 10px;
+      color: var(--ui-text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .slider-value {
+      font-size: 10px;
+      color: var(--ui-text);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ---- Range slider styling ---- */
+    .slider-input {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .slider-input::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--ui-accent);
+      cursor: pointer;
+      border: none;
+      transition: transform 0.1s ease;
+    }
+
+    .slider-input::-webkit-slider-thumb:hover {
+      transform: scale(1.3);
+    }
+
+    .slider-input::-moz-range-thumb {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--ui-accent);
+      cursor: pointer;
+      border: none;
+    }
+
+    .slider-input::-moz-range-track {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      border: none;
+    }
+
+    /* ---- Preset buttons ---- */
+    .preset-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .preset-btn {
+      font-family: var(--ui-font);
+      font-size: 9px;
+      padding: 4px 7px;
+      border: 1px solid var(--ui-border);
+      border-radius: 3px;
+      background: var(--ui-btn-bg);
+      color: var(--ui-text);
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .preset-btn:hover {
+      background: var(--ui-btn-hover);
+      border-color: var(--ui-accent-dim);
+    }
+
+    /* ---- Action buttons ---- */
+    .actions-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .action-btn {
+      font-family: var(--ui-font);
+      font-size: 9px;
+      padding: 4px 8px;
+      border: 1px solid var(--ui-accent-dim);
+      border-radius: 3px;
+      background: transparent;
+      color: var(--ui-accent);
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .action-btn:hover {
+      background: var(--ui-btn-hover);
+    }
+
+    /* ---- Keyboard hint ---- */
+    .keyboard-hint {
+      margin-top: 12px;
+      padding-top: 8px;
+      border-top: 1px solid var(--ui-border);
+      font-size: 9px;
+      color: var(--ui-text-dim);
+      line-height: 1.6;
+    }
+
+    .keyboard-hint kbd {
+      display: inline-block;
+      padding: 1px 4px;
+      border: 1px solid var(--ui-border);
+      border-radius: 2px;
+      background: var(--ui-btn-bg);
+      font-family: var(--ui-font);
+      font-size: 9px;
+      color: var(--ui-text);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
