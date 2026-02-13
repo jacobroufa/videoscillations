@@ -13,29 +13,63 @@ import { params, getDefaults, presets } from './params.js';
 // -------------------------------------------------------------------------
 
 const CONTROL_DEFS = {
-  // Feedback group
+  // Feedback group (mirrorMode and feedbackBlendMode are handled by button selectors)
   feedbackRotation:   { label: 'Rotation',       min: -0.1,  max: 0.1,  step: 0.001,  group: 'Feedback' },
   feedbackZoom:       { label: 'Zoom',            min: 0.95,  max: 1.05, step: 0.001,  group: 'Feedback' },
   feedbackXShift:     { label: 'X Shift',         min: -0.05, max: 0.05, step: 0.001,  group: 'Feedback' },
   feedbackYShift:     { label: 'Y Shift',         min: -0.05, max: 0.05, step: 0.001,  group: 'Feedback' },
   feedbackDecay:      { label: 'Decay',           min: 0.8,   max: 1.0,  step: 0.005,  group: 'Feedback' },
+  kaleidoscopeAngle:  { label: 'Kal Angle',       min: 0.0,   max: 6.283, step: 0.01,  group: 'Feedback' },
 
-  // Shape group
-  shapeFreqX:         { label: 'Freq X',          min: 0.0,   max: 5.0,  step: 0.01,   group: 'Shape' },
-  shapeFreqY:         { label: 'Freq Y',          min: 0.0,   max: 5.0,  step: 0.01,   group: 'Shape' },
+  // Shape group (shapeType is handled by button selector, not a slider)
   shapeRadius:        { label: 'Radius',          min: 0.01,  max: 0.3,  step: 0.005,  group: 'Shape' },
   shapeRadiusModAmt:  { label: 'Mod Amount',      min: 0.0,   max: 0.1,  step: 0.005,  group: 'Shape' },
   shapeRadiusModFreq: { label: 'Mod Frequency',   min: 0.0,   max: 5.0,  step: 0.01,   group: 'Shape' },
   shapeSoftness:      { label: 'Softness',        min: 0.0,   max: 0.1,  step: 0.005,  group: 'Shape' },
+  shapeRingWidth:     { label: 'Ring Width',      min: 0.001, max: 0.1,  step: 0.001,  group: 'Shape' },
+  shapeLineAngle:     { label: 'Line Angle',      min: 0.0,   max: 6.283,step: 0.01,   group: 'Shape' },
+  shapeLineThickness: { label: 'Line Thickness',  min: 0.001, max: 0.05, step: 0.001,  group: 'Shape' },
 
-  // Color group
-  hueRotationSpeed:   { label: 'Hue Speed',       min: 0.0,   max: 0.05, step: 0.0005, group: 'Color' },
-  baseBrightness:     { label: 'Brightness',      min: 0.0,   max: 2.0,  step: 0.05,   group: 'Color' },
-  saturation:         { label: 'Saturation',      min: 0.0,   max: 2.0,  step: 0.05,   group: 'Color' },
+  // Movement group (movementMode is handled by button selector, not a slider)
+  shapeFreqX:             { label: 'Speed X',          min: 0.0,   max: 5.0,   step: 0.01,   group: 'Movement' },
+  shapeFreqY:             { label: 'Speed Y',          min: 0.0,   max: 5.0,   step: 0.01,   group: 'Movement' },
+  movementAmplitude:      { label: 'Amplitude',        min: 0.0,   max: 0.5,   step: 0.01,   group: 'Movement' },
+  movementPhase:          { label: 'Phase',            min: 0.0,   max: 6.283, step: 0.01,   group: 'Movement' },
+  movementSpiralSpeed:    { label: 'Spiral Speed',     min: 0.0,   max: 5.0,   step: 0.1,    group: 'Movement' },
+  movementSpiralExpand:   { label: 'Spiral Expand',    min: 0.01,  max: 0.5,   step: 0.01,   group: 'Movement' },
+  movementScrollAngle:    { label: 'Scroll Angle',     min: 0.0,   max: 6.283, step: 0.01,   group: 'Movement' },
+  movementScrollSpeed:    { label: 'Scroll Speed',     min: 0.0,   max: 2.0,   step: 0.01,   group: 'Movement' },
+  movementBounceSpeed:    { label: 'Bounce Speed',     min: 0.0,   max: 2.0,   step: 0.01,   group: 'Movement' },
+
+  // Color group (colorMode is handled by button selector, not a slider)
+  hueRotationSpeed:     { label: 'Hue Speed',       min: 0.0,   max: 0.05, step: 0.0005, group: 'Color' },
+  baseBrightness:       { label: 'Brightness',      min: 0.0,   max: 2.0,  step: 0.05,   group: 'Color' },
+  saturation:           { label: 'Saturation',      min: 0.0,   max: 2.0,  step: 0.05,   group: 'Color' },
+  shapeHue:             { label: 'Shape Hue',       min: 0.0,   max: 1.0,  step: 0.01,   group: 'Color' },
+  shapeColorSat:        { label: 'Shape Color Sat', min: 0.0,   max: 1.0,  step: 0.01,   group: 'Color' },
+  colorPosterizeLevels: { label: 'Posterize Levels',min: 2,     max: 16,   step: 1,      group: 'Color' },
+  colorGradientHue1:    { label: 'Gradient Hue 1',  min: 0.0,   max: 1.0,  step: 0.01,   group: 'Color' },
+  colorGradientHue2:    { label: 'Gradient Hue 2',  min: 0.0,   max: 1.0,  step: 0.01,   group: 'Color' },
+  colorGradientHue3:    { label: 'Gradient Hue 3',  min: 0.0,   max: 1.0,  step: 0.01,   group: 'Color' },
 };
 
+// Shape type names indexed by shapeType value.
+const SHAPE_NAMES = ['Circle', 'Ring', 'Line', 'Cross', 'Diamond', 'Star', 'Triangle'];
+
+// Color mode names indexed by colorMode value.
+const COLOR_MODE_NAMES = ['Direct', 'Gradient', 'Posterize', 'Negative', 'Thermal'];
+
+// Movement mode names indexed by movementMode value.
+const MOVEMENT_MODE_NAMES = ['Sine', 'Lissajous', 'Spiral', 'Scroll', 'Bounce', 'Fixed'];
+
+// Mirror mode names indexed by mirrorMode value.
+const MIRROR_MODE_NAMES = ['Off', 'H Mirror', 'V Mirror', 'Quad', 'Kal 2', 'Kal 4', 'Kal 8'];
+
+// Feedback blend mode names indexed by feedbackBlendMode value.
+const BLEND_MODE_NAMES = ['Multiply', 'Screen', 'Soft Burn', 'Freeze'];
+
 // Group ordering
-const GROUPS = ['Feedback', 'Shape', 'Color'];
+const GROUPS = ['Feedback', 'Shape', 'Movement', 'Color'];
 
 // -------------------------------------------------------------------------
 // Weighted random ranges for "randomize with taste".
@@ -48,15 +82,37 @@ const RANDOM_RANGES = {
   feedbackXShift:     { min: -0.005, max: 0.005 },
   feedbackYShift:     { min: -0.005, max: 0.005 },
   feedbackDecay:      { min: 0.91,   max: 0.99  },
+  mirrorMode:         { min: 0,      max: 6     },   // integer, handled specially
+  kaleidoscopeAngle:  { min: 0.0,    max: 6.283 },
+  feedbackBlendMode:  { min: 0,      max: 3     },   // integer, handled specially
+  shapeType:          { min: 0,      max: 6     },   // integer, handled specially
   shapeFreqX:         { min: 0.0,    max: 2.5   },
   shapeFreqY:         { min: 0.0,    max: 2.5   },
   shapeRadius:        { min: 0.03,   max: 0.18  },
   shapeRadiusModAmt:  { min: 0.0,    max: 0.08  },
   shapeRadiusModFreq: { min: 0.1,    max: 3.0   },
   shapeSoftness:      { min: 0.005,  max: 0.06  },
-  hueRotationSpeed:   { min: 0.0005, max: 0.01  },
-  baseBrightness:     { min: 0.7,    max: 1.4   },
-  saturation:         { min: 0.6,    max: 1.6   },
+  shapeRingWidth:     { min: 0.005,  max: 0.04  },
+  shapeLineAngle:     { min: 0.0,    max: 3.14  },
+  shapeLineThickness: { min: 0.003,  max: 0.02  },
+  movementMode:           { min: 0,      max: 5     },   // integer, handled specially
+  movementAmplitude:      { min: 0.1,    max: 0.45  },
+  movementPhase:          { min: 0.0,    max: 6.283 },
+  movementSpiralSpeed:    { min: 0.3,    max: 3.0   },
+  movementSpiralExpand:   { min: 0.03,   max: 0.3   },
+  movementScrollAngle:    { min: 0.0,    max: 6.283 },
+  movementScrollSpeed:    { min: 0.1,    max: 1.0   },
+  movementBounceSpeed:    { min: 0.1,    max: 1.0   },
+  hueRotationSpeed:     { min: 0.0005, max: 0.01  },
+  baseBrightness:       { min: 0.7,    max: 1.4   },
+  saturation:           { min: 0.6,    max: 1.6   },
+  shapeHue:             { min: 0.0,    max: 1.0   },
+  shapeColorSat:        { min: 0.0,    max: 1.0   },
+  colorMode:            { min: 0,      max: 4     },   // integer, handled specially
+  colorPosterizeLevels: { min: 2,      max: 12    },   // integer, handled specially
+  colorGradientHue1:    { min: 0.0,    max: 1.0   },
+  colorGradientHue2:    { min: 0.0,    max: 1.0   },
+  colorGradientHue3:    { min: 0.0,    max: 1.0   },
 };
 
 // -------------------------------------------------------------------------
@@ -67,6 +123,11 @@ let panel = null;
 let hideTimeout = null;
 let mouseOverPanel = false;
 let sliderElements = {};  // key -> input element, for syncing on preset/reset
+let shapeTypeButtons = []; // shape selector buttons, for syncing on preset/reset
+let movementModeButtons = []; // movement mode selector buttons, for syncing on preset/reset
+let colorModeButtons = []; // color mode selector buttons, for syncing on preset/reset
+let mirrorModeButtons = []; // mirror mode selector buttons, for syncing on preset/reset
+let blendModeButtons = []; // blend mode selector buttons, for syncing on preset/reset
 
 const HIDE_DELAY = 3000; // ms
 
@@ -140,6 +201,27 @@ function createPanel() {
     heading.textContent = group;
     section.appendChild(heading);
 
+    // Insert mirror mode and blend mode selectors at the top of the Feedback group.
+    if (group === 'Feedback') {
+      section.appendChild(createMirrorModeSelector());
+      section.appendChild(createBlendModeSelector());
+    }
+
+    // Insert shape type selector at the top of the Shape group.
+    if (group === 'Shape') {
+      section.appendChild(createShapeTypeSelector());
+    }
+
+    // Insert movement mode selector at the top of the Movement group.
+    if (group === 'Movement') {
+      section.appendChild(createMovementModeSelector());
+    }
+
+    // Insert color mode selector at the top of the Color group.
+    if (group === 'Color') {
+      section.appendChild(createColorModeSelector());
+    }
+
     for (const [key, def] of Object.entries(CONTROL_DEFS)) {
       if (def.group !== group) continue;
       section.appendChild(createSlider(key, def));
@@ -197,6 +279,176 @@ function createSlider(key, def) {
   return row;
 }
 
+// -------------------------------------------------------------------------
+// Shape type selector factory
+// -------------------------------------------------------------------------
+
+function createShapeTypeSelector() {
+  const row = document.createElement('div');
+  row.className = 'shape-type-row';
+
+  shapeTypeButtons = [];
+
+  for (let i = 0; i < SHAPE_NAMES.length; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'shape-type-btn';
+    btn.textContent = SHAPE_NAMES[i];
+    if (i === params.shapeType) btn.classList.add('active');
+
+    btn.addEventListener('click', () => {
+      params.shapeType = i;
+      syncShapeTypeButtons();
+    });
+
+    shapeTypeButtons.push(btn);
+    row.appendChild(btn);
+  }
+
+  return row;
+}
+
+function syncShapeTypeButtons() {
+  for (let i = 0; i < shapeTypeButtons.length; i++) {
+    shapeTypeButtons[i].classList.toggle('active', i === params.shapeType);
+  }
+}
+
+// -------------------------------------------------------------------------
+// Movement mode selector factory
+// -------------------------------------------------------------------------
+
+function createMovementModeSelector() {
+  const row = document.createElement('div');
+  row.className = 'movement-mode-row';
+
+  movementModeButtons = [];
+
+  for (let i = 0; i < MOVEMENT_MODE_NAMES.length; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'movement-mode-btn';
+    btn.textContent = MOVEMENT_MODE_NAMES[i];
+    if (i === params.movementMode) btn.classList.add('active');
+
+    btn.addEventListener('click', () => {
+      params.movementMode = i;
+      syncMovementModeButtons();
+    });
+
+    movementModeButtons.push(btn);
+    row.appendChild(btn);
+  }
+
+  return row;
+}
+
+function syncMovementModeButtons() {
+  for (let i = 0; i < movementModeButtons.length; i++) {
+    movementModeButtons[i].classList.toggle('active', i === params.movementMode);
+  }
+}
+
+// -------------------------------------------------------------------------
+// Color mode selector factory
+// -------------------------------------------------------------------------
+
+function createColorModeSelector() {
+  const row = document.createElement('div');
+  row.className = 'color-mode-row';
+
+  colorModeButtons = [];
+
+  for (let i = 0; i < COLOR_MODE_NAMES.length; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'color-mode-btn';
+    btn.textContent = COLOR_MODE_NAMES[i];
+    if (i === params.colorMode) btn.classList.add('active');
+
+    btn.addEventListener('click', () => {
+      params.colorMode = i;
+      syncColorModeButtons();
+    });
+
+    colorModeButtons.push(btn);
+    row.appendChild(btn);
+  }
+
+  return row;
+}
+
+function syncColorModeButtons() {
+  for (let i = 0; i < colorModeButtons.length; i++) {
+    colorModeButtons[i].classList.toggle('active', i === params.colorMode);
+  }
+}
+
+// -------------------------------------------------------------------------
+// Mirror mode selector factory
+// -------------------------------------------------------------------------
+
+function createMirrorModeSelector() {
+  const row = document.createElement('div');
+  row.className = 'mirror-mode-row';
+
+  mirrorModeButtons = [];
+
+  for (let i = 0; i < MIRROR_MODE_NAMES.length; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'mirror-mode-btn';
+    btn.textContent = MIRROR_MODE_NAMES[i];
+    if (i === params.mirrorMode) btn.classList.add('active');
+
+    btn.addEventListener('click', () => {
+      params.mirrorMode = i;
+      syncMirrorModeButtons();
+    });
+
+    mirrorModeButtons.push(btn);
+    row.appendChild(btn);
+  }
+
+  return row;
+}
+
+function syncMirrorModeButtons() {
+  for (let i = 0; i < mirrorModeButtons.length; i++) {
+    mirrorModeButtons[i].classList.toggle('active', i === params.mirrorMode);
+  }
+}
+
+// -------------------------------------------------------------------------
+// Blend mode selector factory
+// -------------------------------------------------------------------------
+
+function createBlendModeSelector() {
+  const row = document.createElement('div');
+  row.className = 'blend-mode-row';
+
+  blendModeButtons = [];
+
+  for (let i = 0; i < BLEND_MODE_NAMES.length; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'blend-mode-btn';
+    btn.textContent = BLEND_MODE_NAMES[i];
+    if (i === params.feedbackBlendMode) btn.classList.add('active');
+
+    btn.addEventListener('click', () => {
+      params.feedbackBlendMode = i;
+      syncBlendModeButtons();
+    });
+
+    blendModeButtons.push(btn);
+    row.appendChild(btn);
+  }
+
+  return row;
+}
+
+function syncBlendModeButtons() {
+  for (let i = 0; i < blendModeButtons.length; i++) {
+    blendModeButtons[i].classList.toggle('active', i === params.feedbackBlendMode);
+  }
+}
+
 /** Format a number with a reasonable number of decimals based on step size. */
 function formatValue(val, step) {
   // Count decimals in step to determine display precision.
@@ -213,6 +465,11 @@ function syncSliders() {
     input.value = params[key];
     valueEl.textContent = formatValue(params[key], def.step);
   }
+  syncShapeTypeButtons();
+  syncMovementModeButtons();
+  syncColorModeButtons();
+  syncMirrorModeButtons();
+  syncBlendModeButtons();
 }
 
 // -------------------------------------------------------------------------
@@ -240,6 +497,18 @@ function randomizeParams() {
   for (const [key, range] of Object.entries(RANDOM_RANGES)) {
     const rMin = range.min;
     const rMax = range.max;
+
+    // Integer selectors -- not sliders, handle specially.
+    if (key === 'shapeType' || key === 'colorMode' || key === 'movementMode'
+        || key === 'mirrorMode' || key === 'feedbackBlendMode') {
+      params[key] = Math.floor(Math.random() * (rMax - rMin + 1)) + rMin;
+      continue;
+    }
+    if (key === 'colorPosterizeLevels') {
+      params[key] = Math.floor(Math.random() * (rMax - rMin + 1)) + rMin;
+      continue;
+    }
+
     // Snap to the step grid defined for the control.
     const def = CONTROL_DEFS[key];
     if (def) {
