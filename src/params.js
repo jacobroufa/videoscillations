@@ -27,7 +27,7 @@ const DEFAULTS = Object.freeze({
 
   // -- Oscillator 1 -------------------------------------------------------
   osc1Enabled:            1,       // 0=off, 1=on
-  osc1BlendMode:          0,       // 0=Add (reserved for future use)
+  osc1BlendMode:          0,       // 0=Add,1=Multiply,2=Mask,3=Difference,4=Phase Mod
   osc1Waveform:           0,       // 0=Sine,1=Tan,2=Square,3=Circle,4=Diamond,5=Triangle
   osc1Frequency:          4.0,     // repetitions across screen
   osc1Angle:              0.0,     // rotation of waveform pattern (radians)

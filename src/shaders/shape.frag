@@ -25,7 +25,7 @@ precision highp float;
 // -- Osc1 uniforms --------------------------------------------------------
 uniform vec2  uResolution;
 uniform int   uOsc1Enabled;          // 0=off, 1=on
-uniform int   uOsc1BlendMode;        // reserved for future use
+uniform int   uOsc1BlendMode;        // 0=Add,1=Multiply,2=Mask,3=Difference,4=Phase Mod
 uniform int   uOsc1Waveform;         // waveform type selector (0-5)
 uniform float uOsc1Frequency;        // repetitions across screen
 uniform float uOsc1Angle;            // rotation of waveform pattern (radians)
@@ -309,7 +309,21 @@ void main() {
     float aspect = uResolution.x / uResolution.y;
 
     // ------------------------------------------------------------------
-    // Oscillator 2 evaluation (evaluated first for Phase Mod routing)
+    // Phase Mod routing direction:
+    // Phase Mod on an oscillator means "I am a phase modulator for the other".
+    //   uOsc2BlendMode == 4: Osc2 modulates Osc1's phase (Osc2 evaluated first)
+    //   uOsc1BlendMode == 4: Osc1 modulates Osc2's phase (Osc1 evaluated first)
+    //   Both == 4: tiebreaker -- Osc2 modulates Osc1 only
+    // ------------------------------------------------------------------
+    bool osc2ModsOsc1Phase = (uOsc1Enabled == 1 && uOsc2Enabled == 1 &&
+                              uOsc2BlendMode == 4);
+    bool osc1ModsOsc2Phase = (uOsc1Enabled == 1 && uOsc2Enabled == 1 &&
+                              uOsc1BlendMode == 4 && uOsc2BlendMode != 4);
+
+    // ------------------------------------------------------------------
+    // Oscillator 2 initial evaluation (evaluated first unless Osc1→Osc2
+    // Phase Mod requires Osc1 first; in that case Osc2 is re-evaluated
+    // after Osc1 below).
     // ------------------------------------------------------------------
     float osc2Shape = 0.0;
     vec3 osc2Color = vec3(0.0);
@@ -369,8 +383,8 @@ void main() {
         float osc1PhaseY = uOsc1PhaseOffsetY;
 
         // Phase Mod: Osc2's brightness modulates Osc1's phase input.
-        if (uOsc2Enabled == 1 && uOsc2BlendMode == 4) {
-            osc1PhaseX += osc2Shape * 0.5; // scale for usable FM depth
+        if (osc2ModsOsc1Phase) {
+            osc1PhaseX += osc2Shape * 0.5;
         }
 
         // For radial waveforms (Circle=3, Diamond=4), phase is applied inside
@@ -396,7 +410,41 @@ void main() {
     }
 
     // ------------------------------------------------------------------
-    // Combine oscillators
+    // Phase Mod: Osc1 modulates Osc2 (re-evaluate Osc2 with modulation).
+    // Only when Osc2's blend mode is Phase Mod and Osc1's is not.
+    // ------------------------------------------------------------------
+    if (osc1ModsOsc2Phase) {
+        vec2 uv2 = uv;
+
+        uv2 = applyFractal(uv2, uOsc2FractalAmount, uOsc2FractalAngle);
+        uv2 = rotateUV(uv2, uOsc2PolarizationAngle);
+
+        float osc2PhaseX = uOsc2PhaseOffset + osc1Shape * 0.5;
+        float osc2PhaseY = uOsc2PhaseOffsetY;
+
+        bool osc2Radial = (uOsc2Waveform == 3 || uOsc2Waveform == 4);
+        if (!osc2Radial) {
+            uv2.x += osc2PhaseX;
+            uv2.y += osc2PhaseY;
+        }
+
+        uv2 = rotateUV(uv2, uOsc2Angle);
+
+        osc2Shape = evaluateOscillator(uv2, aspect, uOsc2Waveform, uOsc2Frequency,
+                                        uOsc2Thickness, uOsc2Softness,
+                                        osc2Radial ? osc2PhaseX : 0.0,
+                                        osc2Radial ? osc2PhaseY : 0.0);
+    }
+
+    // ------------------------------------------------------------------
+    // Combine oscillators (bidirectional blend modes)
+    //
+    // Each oscillator's blend mode determines its relationship to the
+    // other oscillator:
+    //   Add/Multiply/Mask/Difference: how the owner is affected by other
+    //   Phase Mod: owner is a phase modulator FOR the other (special case)
+    //
+    // Final output = osc1Contribution + osc2Contribution
     // ------------------------------------------------------------------
     vec3 finalColor = vec3(0.0);
 
@@ -404,25 +452,67 @@ void main() {
     bool osc2On = uOsc2Enabled == 1;
 
     if (osc1On && osc2On) {
-        // Both enabled: combine using osc2BlendMode.
-        if (uOsc2BlendMode == 0) {
-            // Add: both oscillators contribute light independently.
-            finalColor = osc1Color * osc1Shape + osc2Color * osc2Shape;
-        } else if (uOsc2BlendMode == 1) {
-            // Multiply: Osc2 modulates Osc1's brightness (ring mod / AM).
-            finalColor = osc1Color * osc1Shape * osc2Shape;
-        } else if (uOsc2BlendMode == 2) {
-            // Mask: Osc1 only shows where Osc2 is bright (stencil).
-            finalColor = osc1Color * osc1Shape * step(0.01, osc2Shape);
-        } else if (uOsc2BlendMode == 3) {
-            // Difference: absolute difference creates interference patterns.
-            vec3 c1 = osc1Color * osc1Shape;
-            vec3 c2 = osc2Color * osc2Shape;
-            finalColor = abs(c1 - c2);
+        vec3 c1 = osc1Color * osc1Shape;
+        vec3 c2 = osc2Color * osc2Shape;
+
+        // Effective blend modes: account for Phase Mod tiebreaker.
+        // When both are Phase Mod (4), only Osc2→Osc1 applies. Osc1's
+        // Phase Mod request is overridden to Add (it becomes the modulation
+        // target, not a modulator).
+        int eff1Blend = uOsc1BlendMode;
+        int eff2Blend = uOsc2BlendMode;
+        if (uOsc1BlendMode == 4 && uOsc2BlendMode == 4) {
+            eff1Blend = 0; // Osc1 becomes Add (target of Osc2's modulation)
+        }
+
+        // Compute Osc1's contribution based on Osc1's effective blend mode.
+        // Phase Mod on Osc1 means "Osc1 is a phase modulator for Osc2";
+        // its signal is consumed by the modulation and suppressed here.
+        vec3 osc1Contrib = vec3(0.0);
+        if (eff1Blend == 1) {
+            // Multiply: Osc1 is modulated by Osc2's brightness.
+            osc1Contrib = c1 * osc2Shape;
+        } else if (eff1Blend == 2) {
+            // Mask: Osc1 only shows where Osc2 is bright.
+            osc1Contrib = c1 * step(0.01, osc2Shape);
+        } else if (eff1Blend == 3) {
+            // Difference: absolute difference between oscillators.
+            osc1Contrib = abs(c1 - c2);
+        } else if (eff1Blend == 4) {
+            // Phase Mod: Osc1 modulates Osc2's phase. Suppress direct output.
+            osc1Contrib = vec3(0.0);
         } else {
-            // Phase Mod (mode 4): Osc2 already routed into Osc1's phase above.
-            // Output Osc1 only (the modulated result).
-            finalColor = osc1Color * osc1Shape;
+            // Add (mode 0, default): Osc1 contributes independently.
+            osc1Contrib = c1;
+        }
+
+        // Compute Osc2's contribution based on Osc2's effective blend mode.
+        // Phase Mod on Osc2 means "Osc2 is a phase modulator for Osc1";
+        // its signal is consumed by the modulation and suppressed here.
+        vec3 osc2Contrib = vec3(0.0);
+        if (eff2Blend == 1) {
+            // Multiply: Osc2 is modulated by Osc1's brightness.
+            osc2Contrib = c2 * osc1Shape;
+        } else if (eff2Blend == 2) {
+            // Mask: Osc2 only shows where Osc1 is bright.
+            osc2Contrib = c2 * step(0.01, osc1Shape);
+        } else if (eff2Blend == 3) {
+            // Difference: absolute difference between oscillators.
+            osc2Contrib = abs(c2 - c1);
+        } else if (eff2Blend == 4) {
+            // Phase Mod: Osc2 modulates Osc1's phase. Suppress direct output.
+            osc2Contrib = vec3(0.0);
+        } else {
+            // Add (mode 0, default): Osc2 contributes independently.
+            osc2Contrib = c2;
+        }
+
+        // Combine contributions.
+        // Special case: if both are Difference, average to avoid doubling.
+        if (eff1Blend == 3 && eff2Blend == 3) {
+            finalColor = (osc1Contrib + osc2Contrib) * 0.5;
+        } else {
+            finalColor = osc1Contrib + osc2Contrib;
         }
     } else if (osc1On) {
         // Only Osc1 active.
