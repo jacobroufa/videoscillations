@@ -33,15 +33,44 @@ const DEFAULTS = Object.freeze({
   shapeSoftness:      0.02,    // edge softness
   shapePhaseOffset:   0.0,     // waveform phase offset
 
+  // -- Polarization -------------------------------------------------------
+  polarizationAngle:  0.0,     // additional UV rotation (0 to 2*PI)
+  polarizationSpeed:  0.0,     // auto-rotation speed (0 = manual only)
+
+  // -- Angle LFO ---------------------------------------------------------
+  angleLFOEnabled:    0,       // 0=off, 1=on
+  angleLFOWaveform:   0,       // 0=Sine, 1=Triangle, 2=Sawtooth, 3=Square, 4=Random S&H
+  angleLFORate:       0.5,     // Hz (0.01 to 5.0)
+  angleLFODepth:      0.0,     // radians (0 to PI)
+
   // -- Shape fractalization -----------------------------------------------
   shapeFractalAmount: 0,       // 0=off, 1-6 = increasing fold counts
   shapeFractalAngle:  0.0,     // fractal mirror axis angle
+
+  // -- Oscillator 2 ------------------------------------------------------
+  osc2Enabled:            0,       // 0=off, 1=on
+  osc2Waveform:           0,       // 0=Sine,1=Tan,2=Square,3=Circle,4=Diamond,5=Triangle
+  osc2Frequency:          4.0,
+  osc2Angle:              0.0,     // radians
+  osc2Thickness:          0.5,
+  osc2Softness:           0.02,
+  osc2PhaseOffset:        0.0,
+  osc2Hue:                0.5,
+  osc2ColorSat:           1.0,
+  osc2BlendMode:          0,       // 0=Add,1=Multiply,2=Mask,3=Difference,4=Phase Mod
+  osc2MovementMode:       5,       // same as movementMode, default Fixed
+  osc2MovementSpeed:      0.5,
+  osc2MovementAmplitude:  0.3,
+  osc2MovementPhase:      0.0,
+  osc2FractalAmount:      0,
+  osc2FractalAngle:       0.0,
 
   // -- Movement -----------------------------------------------------------
   movementMode:           0,       // 0=Sine,1=Lissajous,2=Spiral,3=Scroll,4=Bounce,5=Fixed
   movementAmplitude:      0.3,     // how far the phase shifts (0-0.5)
   movementPhase:          0.0,     // Lissajous phase offset (0 to 2*PI)
   movementSpeed:          0.5,     // primary movement speed
+  movementLissajousRatio: 0.5,     // Lissajous Y-axis frequency ratio (0.1-3.0)
   movementSpiralSpeed:    1.0,     // spiral angular speed
   movementScrollAngle:    0.0,     // scroll direction in radians (0 to 2*PI)
   movementScrollSpeed:    0.5,     // scroll speed
@@ -98,6 +127,7 @@ export const presets = {
     movementAmplitude:  0.3,
     movementPhase:      0.0,
     movementSpeed:      0.2,
+    movementLissajousRatio: 0.5,
     movementSpiralSpeed:  1.0,
     movementScrollAngle:  0.0,
     movementScrollSpeed:  0.5,
@@ -112,6 +142,28 @@ export const presets = {
     colorGradientHue1:  0.66,
     colorGradientHue2:  0.0,
     colorGradientHue3:  0.15,
+    polarizationAngle:  0.0,
+    polarizationSpeed:  0.0,
+    angleLFOEnabled:    0,
+    angleLFOWaveform:   0,
+    angleLFORate:       0.5,
+    angleLFODepth:      0.0,
+    osc2Enabled:        0,
+    osc2Waveform:       0,
+    osc2Frequency:      4.0,
+    osc2Angle:          0.0,
+    osc2Thickness:      0.5,
+    osc2Softness:       0.02,
+    osc2PhaseOffset:    0.0,
+    osc2Hue:            0.5,
+    osc2ColorSat:       1.0,
+    osc2BlendMode:      0,
+    osc2MovementMode:   5,
+    osc2MovementSpeed:  0.5,
+    osc2MovementAmplitude: 0.3,
+    osc2MovementPhase:  0.0,
+    osc2FractalAmount:  0,
+    osc2FractalAngle:   0.0,
   },
 
   'Tunnel Vision': {
@@ -136,6 +188,7 @@ export const presets = {
     movementAmplitude:  0.3,
     movementPhase:      0.0,
     movementSpeed:      0.0,
+    movementLissajousRatio: 0.5,
     movementSpiralSpeed:  1.0,
     movementScrollAngle:  0.0,
     movementScrollSpeed:  0.5,
@@ -150,6 +203,28 @@ export const presets = {
     colorGradientHue1:  0.66,
     colorGradientHue2:  0.0,
     colorGradientHue3:  0.15,
+    polarizationAngle:  0.0,
+    polarizationSpeed:  0.0,
+    angleLFOEnabled:    0,
+    angleLFOWaveform:   0,
+    angleLFORate:       0.5,
+    angleLFODepth:      0.0,
+    osc2Enabled:        0,
+    osc2Waveform:       0,
+    osc2Frequency:      4.0,
+    osc2Angle:          0.0,
+    osc2Thickness:      0.5,
+    osc2Softness:       0.02,
+    osc2PhaseOffset:    0.0,
+    osc2Hue:            0.5,
+    osc2ColorSat:       1.0,
+    osc2BlendMode:      0,
+    osc2MovementMode:   5,
+    osc2MovementSpeed:  0.5,
+    osc2MovementAmplitude: 0.3,
+    osc2MovementPhase:  0.0,
+    osc2FractalAmount:  0,
+    osc2FractalAngle:   0.0,
   },
 
   'Chaos Spiral': {
@@ -174,6 +249,7 @@ export const presets = {
     movementAmplitude:  0.35,
     movementPhase:      0.0,
     movementSpeed:      2.1,
+    movementLissajousRatio: 0.75,
     movementSpiralSpeed:  2.5,
     movementScrollAngle:  0.0,
     movementScrollSpeed:  0.5,
@@ -188,6 +264,28 @@ export const presets = {
     colorGradientHue1:  0.66,
     colorGradientHue2:  0.0,
     colorGradientHue3:  0.15,
+    polarizationAngle:  0.0,
+    polarizationSpeed:  0.0,
+    angleLFOEnabled:    0,
+    angleLFOWaveform:   0,
+    angleLFORate:       0.5,
+    angleLFODepth:      0.0,
+    osc2Enabled:        0,
+    osc2Waveform:       0,
+    osc2Frequency:      4.0,
+    osc2Angle:          0.0,
+    osc2Thickness:      0.5,
+    osc2Softness:       0.02,
+    osc2PhaseOffset:    0.0,
+    osc2Hue:            0.5,
+    osc2ColorSat:       1.0,
+    osc2BlendMode:      0,
+    osc2MovementMode:   5,
+    osc2MovementSpeed:  0.5,
+    osc2MovementAmplitude: 0.3,
+    osc2MovementPhase:  0.0,
+    osc2FractalAmount:  0,
+    osc2FractalAngle:   0.0,
   },
 
   'Breathing Pulse': {
@@ -212,6 +310,7 @@ export const presets = {
     movementAmplitude:  0.25,
     movementPhase:      1.571,   // PI/2 -- figure-8
     movementSpeed:      0.3,
+    movementLissajousRatio: 0.5,
     movementSpiralSpeed:  1.0,
     movementScrollAngle:  0.0,
     movementScrollSpeed:  0.5,
@@ -226,6 +325,28 @@ export const presets = {
     colorGradientHue1:  0.75,    // violet
     colorGradientHue2:  0.0,     // red
     colorGradientHue3:  0.12,    // orange
+    polarizationAngle:  0.0,
+    polarizationSpeed:  0.0,
+    angleLFOEnabled:    0,
+    angleLFOWaveform:   0,
+    angleLFORate:       0.5,
+    angleLFODepth:      0.0,
+    osc2Enabled:        0,
+    osc2Waveform:       0,
+    osc2Frequency:      4.0,
+    osc2Angle:          0.0,
+    osc2Thickness:      0.5,
+    osc2Softness:       0.02,
+    osc2PhaseOffset:    0.0,
+    osc2Hue:            0.5,
+    osc2ColorSat:       1.0,
+    osc2BlendMode:      0,
+    osc2MovementMode:   5,
+    osc2MovementSpeed:  0.5,
+    osc2MovementAmplitude: 0.3,
+    osc2MovementPhase:  0.0,
+    osc2FractalAmount:  0,
+    osc2FractalAngle:   0.0,
   },
 
   'Kaleidoscope': {
@@ -250,6 +371,7 @@ export const presets = {
     movementAmplitude:  0.3,
     movementPhase:      0.0,
     movementSpeed:      1.3,
+    movementLissajousRatio: 0.667,
     movementSpiralSpeed:  1.0,
     movementScrollAngle:  0.0,
     movementScrollSpeed:  0.5,
@@ -264,6 +386,28 @@ export const presets = {
     colorGradientHue1:  0.66,
     colorGradientHue2:  0.0,
     colorGradientHue3:  0.15,
+    polarizationAngle:  0.0,
+    polarizationSpeed:  0.0,
+    angleLFOEnabled:    0,
+    angleLFOWaveform:   0,
+    angleLFORate:       0.5,
+    angleLFODepth:      0.0,
+    osc2Enabled:        0,
+    osc2Waveform:       0,
+    osc2Frequency:      4.0,
+    osc2Angle:          0.0,
+    osc2Thickness:      0.5,
+    osc2Softness:       0.02,
+    osc2PhaseOffset:    0.0,
+    osc2Hue:            0.5,
+    osc2ColorSat:       1.0,
+    osc2BlendMode:      0,
+    osc2MovementMode:   5,
+    osc2MovementSpeed:  0.5,
+    osc2MovementAmplitude: 0.3,
+    osc2MovementPhase:  0.0,
+    osc2FractalAmount:  0,
+    osc2FractalAngle:   0.0,
   },
 
   'Sine Bars': {
@@ -288,6 +432,7 @@ export const presets = {
     movementAmplitude:  0.3,
     movementPhase:      0.0,
     movementSpeed:      0.8,
+    movementLissajousRatio: 0.5,
     movementSpiralSpeed:  1.0,
     movementScrollAngle:  0.0,
     movementScrollSpeed:  0.3,
@@ -302,6 +447,28 @@ export const presets = {
     colorGradientHue1:  0.66,
     colorGradientHue2:  0.0,
     colorGradientHue3:  0.15,
+    polarizationAngle:  0.0,
+    polarizationSpeed:  0.0,
+    angleLFOEnabled:    0,
+    angleLFOWaveform:   0,
+    angleLFORate:       0.5,
+    angleLFODepth:      0.0,
+    osc2Enabled:        0,
+    osc2Waveform:       0,
+    osc2Frequency:      4.0,
+    osc2Angle:          0.0,
+    osc2Thickness:      0.5,
+    osc2Softness:       0.02,
+    osc2PhaseOffset:    0.0,
+    osc2Hue:            0.5,
+    osc2ColorSat:       1.0,
+    osc2BlendMode:      0,
+    osc2MovementMode:   5,
+    osc2MovementSpeed:  0.5,
+    osc2MovementAmplitude: 0.3,
+    osc2MovementPhase:  0.0,
+    osc2FractalAmount:  0,
+    osc2FractalAngle:   0.0,
   },
 
   'Digital Grid': {
@@ -326,6 +493,7 @@ export const presets = {
     movementAmplitude:  0.35,
     movementPhase:      2.094,   // 2*PI/3 -- interesting loop
     movementSpeed:      1.5,
+    movementLissajousRatio: 0.667,
     movementSpiralSpeed:  1.0,
     movementScrollAngle:  0.0,
     movementScrollSpeed:  0.5,
@@ -340,5 +508,27 @@ export const presets = {
     colorGradientHue1:  0.66,
     colorGradientHue2:  0.0,
     colorGradientHue3:  0.15,
+    polarizationAngle:  0.0,
+    polarizationSpeed:  0.0,
+    angleLFOEnabled:    0,
+    angleLFOWaveform:   0,
+    angleLFORate:       0.5,
+    angleLFODepth:      0.0,
+    osc2Enabled:        0,
+    osc2Waveform:       0,
+    osc2Frequency:      4.0,
+    osc2Angle:          0.0,
+    osc2Thickness:      0.5,
+    osc2Softness:       0.02,
+    osc2PhaseOffset:    0.0,
+    osc2Hue:            0.5,
+    osc2ColorSat:       1.0,
+    osc2BlendMode:      0,
+    osc2MovementMode:   5,
+    osc2MovementSpeed:  0.5,
+    osc2MovementAmplitude: 0.3,
+    osc2MovementPhase:  0.0,
+    osc2FractalAmount:  0,
+    osc2FractalAngle:   0.0,
   },
 };

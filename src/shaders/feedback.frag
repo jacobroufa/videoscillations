@@ -118,14 +118,21 @@ void main() {
 
     // 9. Apply blend mode / decay.
     if (uBlendMode == 1) {
-        // Screen: fades to white.
-        fragColor = vec4(1.0 - (1.0 - color) * uDecay, 1.0);
+        // Screen: bright glowing trails that fade toward white instead of black.
+        // Square the decay factor for more dramatic visual effect at typical slider values.
+        float d = uDecay * uDecay;
+        fragColor = vec4(1.0 - (1.0 - color) * d, 1.0);
     } else if (uBlendMode == 2) {
-        // Soft burn: different fade character.
-        fragColor = vec4(pow(color, vec3(1.0 / max(uDecay, 0.01))), 1.0);
+        // Soft burn: warm, saturating glow with mid-tone enhancement.
+        // Blends between linear decay and square-root brightening for a bloomy look.
+        vec3 linear = color * uDecay;
+        vec3 bloom = sqrt(color) * uDecay;
+        fragColor = vec4(mix(linear, bloom, 0.5), 1.0);
     } else if (uBlendMode == 3) {
-        // Freeze: trails never fade.
-        fragColor = vec4(color, 1.0);
+        // Freeze: trails persist almost indefinitely.
+        // Apply tiny decay to prevent total white-out saturation,
+        // and clamp below 1.0 to leave headroom for new shapes.
+        fragColor = vec4(min(color * 0.999, vec3(0.95)), 1.0);
     } else {
         // Mode 0: Multiply (default). Fades to black. Higher uDecay = longer trails.
         fragColor = vec4(color * uDecay, 1.0);
