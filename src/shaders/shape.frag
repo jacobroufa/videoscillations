@@ -245,31 +245,37 @@ float sdTriangleTiled(vec2 p, float freq) {
 // -------------------------------------------------------------------------
 
 float evaluateOscillator(vec2 uv, float aspect, int waveform, float frequency,
-                         float thickness, float softness) {
+                         float thickness, float softness,
+                         float phaseX, float phaseY) {
     float shape = 0.0;
 
     if (waveform == 3) {
         // Circle: concentric rings from screen center.
+        // Phase offset modulates radial distance (ring expansion/contraction)
+        // instead of translating the center point off-screen.
         vec2 centered = uv - 0.5;
         centered.x *= aspect;
         float dist = length(centered);
-        float t = dist * frequency;
+        float t = dist * frequency + phaseX;
         float wave = sin(t * TAU) * 0.5 + 0.5;
         float halfSoft = max(softness, 0.001);
         shape = smoothstep(1.0 - thickness - halfSoft, 1.0 - thickness + halfSoft, wave);
 
     } else if (waveform == 4) {
         // Diamond: L1/Manhattan distance concentric rings from center.
+        // Phase offset modulates radial distance (ring expansion/contraction)
+        // instead of translating the center point off-screen.
         vec2 centered = uv - 0.5;
         centered.x *= aspect;
         float dist = abs(centered.x) + abs(centered.y);
-        float t = dist * frequency;
+        float t = dist * frequency + phaseX;
         float wave = sin(t * TAU) * 0.5 + 0.5;
         float halfSoft = max(softness, 0.001);
         shape = smoothstep(1.0 - thickness - halfSoft, 1.0 - thickness + halfSoft, wave);
 
     } else if (waveform == 5) {
         // Triangle: tiled equilateral triangles.
+        // UV translation scrolls the tile grid (applied in main before call).
         vec2 triUV = uv;
         triUV.x *= aspect;
         float d = sdTriangleTiled(triUV - vec2(aspect * 0.5, 0.5), frequency);
@@ -278,6 +284,7 @@ float evaluateOscillator(vec2 uv, float aspect, int waveform, float frequency,
 
     } else {
         // Linear waveforms (Sine=0, Tan=1, Square=2).
+        // UV translation scrolls the pattern (applied in main before call).
         float coord = (uv.x - 0.5) * aspect;
         float t = coord * frequency;
         shape = evaluateWaveform(waveform, t, thickness, softness);
@@ -316,16 +323,27 @@ void main() {
         // Apply Osc2 polarization rotation.
         uv2 = rotateUV(uv2, uOsc2PolarizationAngle);
 
-        // Apply Osc2 2D phase offset.
-        uv2.x += uOsc2PhaseOffset;
-        uv2.y += uOsc2PhaseOffsetY;
+        // Phase offsets for Osc2.
+        float osc2PhaseX = uOsc2PhaseOffset;
+        float osc2PhaseY = uOsc2PhaseOffsetY;
+
+        // For radial waveforms (Circle=3, Diamond=4), phase is applied inside
+        // evaluateOscillator as radial distance offset (ring expansion/contraction).
+        // For linear waveforms and Triangle, phase is applied as UV translation.
+        bool osc2Radial = (uOsc2Waveform == 3 || uOsc2Waveform == 4);
+        if (!osc2Radial) {
+            uv2.x += osc2PhaseX;
+            uv2.y += osc2PhaseY;
+        }
 
         // Apply Osc2 rotation (angle).
         uv2 = rotateUV(uv2, uOsc2Angle);
 
         // Evaluate Osc2 waveform.
         osc2Shape = evaluateOscillator(uv2, aspect, uOsc2Waveform, uOsc2Frequency,
-                                        uOsc2Thickness, uOsc2Softness);
+                                        uOsc2Thickness, uOsc2Softness,
+                                        osc2Radial ? osc2PhaseX : 0.0,
+                                        osc2Radial ? osc2PhaseY : 0.0);
 
         // Osc2 color.
         osc2Color = hsv2rgb(uOsc2Hue, uOsc2ColorSat, 1.0);
@@ -346,7 +364,7 @@ void main() {
         // Apply polarization rotation (separate spatial transform from osc1Angle).
         uv1 = rotateUV(uv1, uOsc1PolarizationAngle);
 
-        // Apply 2D phase offset as UV translation BEFORE rotation.
+        // Phase offsets for Osc1.
         float osc1PhaseX = uOsc1PhaseOffset;
         float osc1PhaseY = uOsc1PhaseOffsetY;
 
@@ -355,15 +373,23 @@ void main() {
             osc1PhaseX += osc2Shape * 0.5; // scale for usable FM depth
         }
 
-        uv1.x += osc1PhaseX;
-        uv1.y += osc1PhaseY;
+        // For radial waveforms (Circle=3, Diamond=4), phase is applied inside
+        // evaluateOscillator as radial distance offset (ring expansion/contraction).
+        // For linear waveforms and Triangle, phase is applied as UV translation.
+        bool osc1Radial = (uOsc1Waveform == 3 || uOsc1Waveform == 4);
+        if (!osc1Radial) {
+            uv1.x += osc1PhaseX;
+            uv1.y += osc1PhaseY;
+        }
 
         // Apply Osc1 rotation around center.
         uv1 = rotateUV(uv1, uOsc1Angle);
 
         // Evaluate Osc1 waveform.
         osc1Shape = evaluateOscillator(uv1, aspect, uOsc1Waveform, uOsc1Frequency,
-                                          uOsc1Thickness, uOsc1Softness);
+                                          uOsc1Thickness, uOsc1Softness,
+                                          osc1Radial ? osc1PhaseX : 0.0,
+                                          osc1Radial ? osc1PhaseY : 0.0);
 
         // Osc1 color.
         osc1Color = hsv2rgb(uOsc1Hue, uOsc1ColorSat, 1.0);
