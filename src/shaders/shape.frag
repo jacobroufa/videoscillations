@@ -180,11 +180,21 @@ float evaluateWaveform(int waveform, float t, float thickness, float softness) {
         // Tan/Sawtooth: sharp ramp using fract
         wave = fract(t);
     } else if (waveform == 2) {
-        // Square: hard on/off binary bands.
-        // Use smoothstep around the thickness threshold for controllable edge softness.
-        float f = fract(t);
+        // Square: true binary on/off rectangular pulse with duty cycle control.
+        // Visually distinct from Sine: produces perfectly flat bright/dark regions
+        // with sharp linear edges (no sinusoidal curvature). The duty cycle maps
+        // linearly to the bright region width, unlike Sine where the brightness
+        // region follows a sinusoidal envelope.
+        // thickness controls duty cycle: 0.1 = thin bright, 0.5 = equal, 0.9 = wide bright.
+        // softness controls edge blur at the transition boundaries.
         float halfSoft = max(softness, 0.001);
-        return smoothstep(thickness - halfSoft, thickness + halfSoft, f);
+        float f = fract(t);
+        // Rectangular pulse: bright when f < thickness, dark otherwise.
+        // At softness=0 this is a perfect step function.
+        // Unlike Sine which thresholds a smooth sinusoidal curve (nonlinear
+        // duty cycle mapping, curved edges), this gives a perfectly linear
+        // duty cycle with sharp rectangular edges.
+        return 1.0 - smoothstep(thickness - halfSoft, thickness + halfSoft, f);
     } else {
         // Sine (default, also used as fallback)
         // Map sin output from [-1,1] to [0,1]
