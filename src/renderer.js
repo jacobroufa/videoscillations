@@ -11,6 +11,14 @@
  * blending (gl.blendFunc(ONE, ONE)) rather than a shader-based composite.
  * This avoids the read-write conflict that would occur if we tried to
  * sample and render to the same FBO in a single shader pass.
+ *
+ * Movement modes drive the shapePhaseOffset for fullscreen waveform scrolling:
+ *   0 = Sine oscillation of phase
+ *   1 = Lissajous (sine with phase offset)
+ *   2 = Spiral (phase + angle animation for radial waveforms)
+ *   3 = Scroll (continuous phase increment)
+ *   4 = Bounce (phase bounces between limits)
+ *   5 = Fixed (no phase animation)
  */
 
 import { drawFullscreenQuad } from './gl.js';
@@ -37,10 +45,8 @@ export class Renderer {
     this._startTime = performance.now();
 
     // Bounce mode internal state.
-    this._bounceX = 0.5;
-    this._bounceY = 0.5;
-    this._bounceVX = 1.0;   // direction multiplier (+1 or -1 scaled by speed)
-    this._bounceVY = 0.7;   // slightly different to avoid corner-lock
+    this._bouncePhase = 0.0;
+    this._bounceDir = 1.0;
     this._lastTime = 0;
   }
 
@@ -55,10 +61,8 @@ export class Renderer {
     this._lastTime = this._startTime;
 
     // Reset bounce state.
-    this._bounceX = 0.5;
-    this._bounceY = 0.5;
-    this._bounceVX = 1.0;
-    this._bounceVY = 0.7;
+    this._bouncePhase = 0.0;
+    this._bounceDir = 1.0;
 
     this._tick = this._tick.bind(this);
     this._rafId = requestAnimationFrame(this._tick);
@@ -82,6 +86,60 @@ export class Renderer {
 
     const width  = gl.canvas.width;
     const height = gl.canvas.height;
+
+    // ------------------------------------------------------------------
+    // Compute phase offset from movement mode.
+    // Movement drives waveform scrolling via phase offset animation.
+    // ------------------------------------------------------------------
+    let phaseOffset = p.shapePhaseOffset;
+    let angleOffset = p.shapeAngle;
+    const amp = p.movementAmplitude;
+    const speed = p.movementSpeed;
+
+    switch (p.movementMode) {
+      case 1: {
+        // Lissajous: sinusoidal phase oscillation with phase offset.
+        phaseOffset += amp * Math.sin(elapsed * speed * TAU + p.movementPhase);
+        break;
+      }
+      case 2: {
+        // Spiral: for radial waveforms, animate both phase and angle.
+        // Phase scrolls outward, angle rotates.
+        phaseOffset += elapsed * speed * amp;
+        angleOffset += elapsed * p.movementSpiralSpeed;
+        break;
+      }
+      case 3: {
+        // Scroll: continuous phase increment at constant speed.
+        // Direction determined by movementScrollAngle mapped to phase.
+        const scrollRate = p.movementScrollSpeed;
+        phaseOffset += elapsed * scrollRate;
+        break;
+      }
+      case 4: {
+        // Bounce: phase oscillates between -amp and +amp, bouncing at edges.
+        const bounceSpeed = p.movementBounceSpeed;
+        this._bouncePhase += this._bounceDir * bounceSpeed * dt;
+        if (this._bouncePhase > amp) {
+          this._bouncePhase = amp - (this._bouncePhase - amp);
+          this._bounceDir = -1.0;
+        }
+        if (this._bouncePhase < -amp) {
+          this._bouncePhase = -amp - (this._bouncePhase + amp);
+          this._bounceDir = 1.0;
+        }
+        phaseOffset += this._bouncePhase;
+        break;
+      }
+      case 5:
+        // Fixed: no phase animation.
+        break;
+      default: {
+        // Mode 0: Sine oscillation of phase.
+        phaseOffset += amp * Math.sin(elapsed * speed * TAU);
+        break;
+      }
+    }
 
     // ------------------------------------------------------------------
     // Pass 1: Feedback
@@ -108,6 +166,7 @@ export class Renderer {
     gl.uniform1f(fb.uHueShift, p.hueRotationSpeed);
     gl.uniform1i(fb.uMirrorMode, p.mirrorMode);
     gl.uniform1f(fb.uKaleidoscopeAngle, p.kaleidoscopeAngle);
+    gl.uniform1i(fb.uMirrorTarget, p.mirrorTarget);
     gl.uniform1i(fb.uBlendMode, p.feedbackBlendMode);
 
     gl.disable(gl.BLEND);
@@ -126,78 +185,19 @@ export class Renderer {
 
     const sh = this.uniforms.shape;
     gl.uniform2f(sh.uResolution, width, height);
-
-    // Compute shape center position based on movement mode.
-    let cx, cy;
-    const amp = p.movementAmplitude;
-    const freqX = p.shapeFreqX;
-    const freqY = p.shapeFreqY;
-
-    switch (p.movementMode) {
-      case 1: {
-        // Lissajous: figure-8s, loops, complex curves.
-        cx = 0.5 + amp * Math.sin(elapsed * freqX * TAU);
-        cy = 0.5 + amp * Math.sin(elapsed * freqY * TAU + p.movementPhase);
-        break;
-      }
-      case 2: {
-        // Spiral: outward from center, wraps at max amplitude.
-        const angle = elapsed * p.movementSpiralSpeed;
-        const r = (elapsed * p.movementSpiralExpand) % amp;
-        cx = 0.5 + r * Math.cos(angle);
-        cy = 0.5 + r * Math.sin(angle);
-        break;
-      }
-      case 3: {
-        // Directional scroll: constant direction, wraps at edges.
-        const dx = Math.cos(p.movementScrollAngle) * p.movementScrollSpeed * elapsed;
-        const dy = Math.sin(p.movementScrollAngle) * p.movementScrollSpeed * elapsed;
-        cx = ((dx % 1.0) + 1.0) % 1.0;
-        cy = ((dy % 1.0) + 1.0) % 1.0;
-        break;
-      }
-      case 4: {
-        // Bounce: screensaver-style, bounces off edges.
-        const speed = p.movementBounceSpeed;
-        this._bounceX += this._bounceVX * speed * dt;
-        this._bounceY += this._bounceVY * speed * dt;
-
-        // Bounce off edges (0 and 1).
-        if (this._bounceX <= 0) { this._bounceX = -this._bounceX; this._bounceVX = Math.abs(this._bounceVX); }
-        if (this._bounceX >= 1) { this._bounceX = 2 - this._bounceX; this._bounceVX = -Math.abs(this._bounceVX); }
-        if (this._bounceY <= 0) { this._bounceY = -this._bounceY; this._bounceVY = Math.abs(this._bounceVY); }
-        if (this._bounceY >= 1) { this._bounceY = 2 - this._bounceY; this._bounceVY = -Math.abs(this._bounceVY); }
-
-        cx = this._bounceX;
-        cy = this._bounceY;
-        break;
-      }
-      case 5:
-        // Fixed center: stays at (0.5, 0.5).
-        cx = 0.5;
-        cy = 0.5;
-        break;
-      default: {
-        // Mode 0: Sine oscillation (original behavior, now using movementAmplitude).
-        cx = 0.5 + amp * Math.sin(elapsed * freqX * TAU);
-        cy = 0.5 + amp * Math.sin(elapsed * freqY * TAU);
-        break;
-      }
-    }
-
-    gl.uniform2f(sh.uShapeCenter, cx, cy);
-
-    // Modulate radius.
-    const radius = p.shapeRadius
-      + p.shapeRadiusModAmt * Math.sin(elapsed * p.shapeRadiusModFreq * Math.PI * 2);
-    gl.uniform1f(sh.uShapeRadius, Math.max(0.001, radius));
+    gl.uniform1i(sh.uShapeWaveform, p.shapeWaveform);
+    gl.uniform1f(sh.uShapeFrequency, p.shapeFrequency);
+    gl.uniform1f(sh.uShapeAngle, angleOffset);
+    gl.uniform1f(sh.uShapeThickness, p.shapeThickness);
     gl.uniform1f(sh.uShapeSoftness, p.shapeSoftness);
-    gl.uniform1i(sh.uShapeType, p.shapeType);
-    gl.uniform1f(sh.uShapeRingWidth, p.shapeRingWidth);
-    gl.uniform1f(sh.uShapeLineAngle, p.shapeLineAngle);
-    gl.uniform1f(sh.uShapeLineThickness, p.shapeLineThickness);
+    gl.uniform1f(sh.uShapePhaseOffset, phaseOffset);
+    gl.uniform1i(sh.uShapeFractalAmount, p.shapeFractalAmount);
+    gl.uniform1f(sh.uShapeFractalAngle, p.shapeFractalAngle);
     gl.uniform1f(sh.uShapeHue, p.shapeHue);
     gl.uniform1f(sh.uShapeColorSat, p.shapeColorSat);
+    gl.uniform1i(sh.uMirrorMode, p.mirrorMode);
+    gl.uniform1f(sh.uKaleidoscopeAngle, p.kaleidoscopeAngle);
+    gl.uniform1i(sh.uMirrorTarget, p.mirrorTarget);
 
     drawFullscreenQuad(gl, this.quadVAO);
 
@@ -226,6 +226,9 @@ export class Renderer {
     gl.uniform1f(dp.uGradientHue1, p.colorGradientHue1);
     gl.uniform1f(dp.uGradientHue2, p.colorGradientHue2);
     gl.uniform1f(dp.uGradientHue3, p.colorGradientHue3);
+    gl.uniform1i(dp.uMirrorMode, p.mirrorMode);
+    gl.uniform1f(dp.uKaleidoscopeAngle, p.kaleidoscopeAngle);
+    gl.uniform1i(dp.uMirrorTarget, p.mirrorTarget);
 
     drawFullscreenQuad(gl, this.quadVAO);
 

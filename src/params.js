@@ -22,38 +22,39 @@ const DEFAULTS = Object.freeze({
   feedbackDecay:      0.97,
   mirrorMode:         0,       // 0=None,1=H Mirror,2=V Mirror,3=Quad,4=Kal2,5=Kal4,6=Kal8
   kaleidoscopeAngle:  0.0,     // rotation offset for kaleidoscope wedge (0 to 2*PI)
+  mirrorTarget:       2,       // 0=Feedback,1=Shape,2=Both,3=Output
   feedbackBlendMode:  0,       // 0=Multiply,1=Screen,2=Soft Burn,3=Freeze
 
-  // -- Shape oscillator ---------------------------------------------------
-  shapeType:          0,       // 0=circle,1=ring,2=line,3=cross,4=diamond,5=star,6=triangle
-  shapeFreqX:         0.5,
-  shapeFreqY:         0.7,
-  shapeRadius:        0.08,
-  shapeRadiusModAmt:  0.03,
-  shapeRadiusModFreq: 1.2,
-  shapeSoftness:      0.02,
-  shapeRingWidth:     0.02,    // ring thickness (type 1)
-  shapeLineAngle:     0.0,     // line rotation in radians (type 2)
-  shapeLineThickness: 0.01,    // line / cross thickness (types 2, 3)
+  // -- Shape waveform oscillator ------------------------------------------
+  shapeWaveform:      0,       // 0=Sine,1=Tan,2=Square,3=Circle,4=Diamond,5=Triangle
+  shapeFrequency:     4.0,     // repetitions across screen
+  shapeAngle:         0.0,     // rotation of waveform pattern (radians)
+  shapeThickness:     0.5,     // duty cycle (0.0-1.0)
+  shapeSoftness:      0.02,    // edge softness
+  shapePhaseOffset:   0.0,     // waveform phase offset
+
+  // -- Shape fractalization -----------------------------------------------
+  shapeFractalAmount: 0,       // 0=off, 1-6 = increasing fold counts
+  shapeFractalAngle:  0.0,     // fractal mirror axis angle
 
   // -- Movement -----------------------------------------------------------
   movementMode:           0,       // 0=Sine,1=Lissajous,2=Spiral,3=Scroll,4=Bounce,5=Fixed
-  movementAmplitude:      0.3,     // how far from center (0-0.5)
+  movementAmplitude:      0.3,     // how far the phase shifts (0-0.5)
   movementPhase:          0.0,     // Lissajous phase offset (0 to 2*PI)
+  movementSpeed:          0.5,     // primary movement speed
   movementSpiralSpeed:    1.0,     // spiral angular speed
-  movementSpiralExpand:   0.1,     // spiral growth rate
   movementScrollAngle:    0.0,     // scroll direction in radians (0 to 2*PI)
   movementScrollSpeed:    0.5,     // scroll speed
   movementBounceSpeed:    0.3,     // bounce velocity
 
   // -- Color --------------------------------------------------------------
-  hueRotationSpeed:   0.001,
+  hueRotationSpeed:   0.015,   // increased from 0.001 for visible hue cycling
   baseBrightness:     1.0,
   saturation:         1.0,
 
   // -- Shape color --------------------------------------------------------
   shapeHue:           0.0,    // hue of the shape (0-1, HSV)
-  shapeColorSat:      0.0,    // saturation of shape color (0 = white)
+  shapeColorSat:      1.0,    // CHANGED from 0.0 -- shapes are colored by default for working hue shift
 
   // -- Color modes --------------------------------------------------------
   colorMode:              0,      // 0=Direct,1=Gradient,2=Posterize,3=Negative,4=Thermal
@@ -83,30 +84,29 @@ export const presets = {
     feedbackDecay:      0.985,
     mirrorMode:         0,
     kaleidoscopeAngle:  0.0,
+    mirrorTarget:       2,
     feedbackBlendMode:  0,
-    shapeType:          0,
-    shapeFreqX:         0.2,
-    shapeFreqY:         0.15,
-    shapeRadius:        0.1,
-    shapeRadiusModAmt:  0.02,
-    shapeRadiusModFreq: 0.4,
+    shapeWaveform:      0,       // sine
+    shapeFrequency:     3.0,
+    shapeAngle:         0.3,
+    shapeThickness:     0.5,
     shapeSoftness:      0.04,
-    shapeRingWidth:     0.02,
-    shapeLineAngle:     0.0,
-    shapeLineThickness: 0.01,
+    shapePhaseOffset:   0.0,
+    shapeFractalAmount: 0,
+    shapeFractalAngle:  0.0,
     movementMode:       0,       // sine
     movementAmplitude:  0.3,
     movementPhase:      0.0,
+    movementSpeed:      0.2,
     movementSpiralSpeed:  1.0,
-    movementSpiralExpand: 0.1,
     movementScrollAngle:  0.0,
     movementScrollSpeed:  0.5,
     movementBounceSpeed:  0.3,
-    hueRotationSpeed:   0.0008,
+    hueRotationSpeed:   0.008,
     baseBrightness:     0.9,
     saturation:         1.2,
-    shapeHue:           0.0,
-    shapeColorSat:      0.0,
+    shapeHue:           0.55,
+    shapeColorSat:      0.8,
     colorMode:          0,
     colorPosterizeLevels: 6,
     colorGradientHue1:  0.66,
@@ -122,26 +122,25 @@ export const presets = {
     feedbackDecay:      0.985,
     mirrorMode:         0,
     kaleidoscopeAngle:  0.0,
+    mirrorTarget:       2,
     feedbackBlendMode:  0,
-    shapeType:          1,       // ring
-    shapeFreqX:         0.0,
-    shapeFreqY:         0.0,
-    shapeRadius:        0.12,
-    shapeRadiusModAmt:  0.01,
-    shapeRadiusModFreq: 0.8,
+    shapeWaveform:      3,       // circle (concentric rings)
+    shapeFrequency:     8.0,
+    shapeAngle:         0.0,
+    shapeThickness:     0.4,
     shapeSoftness:      0.03,
-    shapeRingWidth:     0.015,
-    shapeLineAngle:     0.0,
-    shapeLineThickness: 0.01,
-    movementMode:       5,       // fixed center -- tunnel effect
+    shapePhaseOffset:   0.0,
+    shapeFractalAmount: 0,
+    shapeFractalAngle:  0.0,
+    movementMode:       5,       // fixed -- tunnel effect
     movementAmplitude:  0.3,
     movementPhase:      0.0,
+    movementSpeed:      0.0,
     movementSpiralSpeed:  1.0,
-    movementSpiralExpand: 0.1,
     movementScrollAngle:  0.0,
     movementScrollSpeed:  0.5,
     movementBounceSpeed:  0.3,
-    hueRotationSpeed:   0.003,
+    hueRotationSpeed:   0.012,
     baseBrightness:     1.1,
     saturation:         1.0,
     shapeHue:           0.55,
@@ -161,30 +160,29 @@ export const presets = {
     feedbackDecay:      0.96,
     mirrorMode:         0,
     kaleidoscopeAngle:  0.0,
+    mirrorTarget:       2,
     feedbackBlendMode:  0,
-    shapeType:          5,       // star
-    shapeFreqX:         2.1,
-    shapeFreqY:         1.7,
-    shapeRadius:        0.04,
-    shapeRadiusModAmt:  0.05,
-    shapeRadiusModFreq: 3.0,
+    shapeWaveform:      2,       // square
+    shapeFrequency:     6.0,
+    shapeAngle:         0.785,
+    shapeThickness:     0.3,
     shapeSoftness:      0.01,
-    shapeRingWidth:     0.02,
-    shapeLineAngle:     0.0,
-    shapeLineThickness: 0.01,
+    shapePhaseOffset:   0.0,
+    shapeFractalAmount: 3,       // 4-fold fractal
+    shapeFractalAngle:  0.5,
     movementMode:       2,       // spiral
     movementAmplitude:  0.35,
     movementPhase:      0.0,
+    movementSpeed:      2.1,
     movementSpiralSpeed:  2.5,
-    movementSpiralExpand: 0.15,
     movementScrollAngle:  0.0,
     movementScrollSpeed:  0.5,
     movementBounceSpeed:  0.3,
-    hueRotationSpeed:   0.008,
+    hueRotationSpeed:   0.02,
     baseBrightness:     1.3,
     saturation:         1.5,
     shapeHue:           0.0,
-    shapeColorSat:      0.0,
+    shapeColorSat:      1.0,
     colorMode:          2,       // posterize
     colorPosterizeLevels: 4,
     colorGradientHue1:  0.66,
@@ -200,26 +198,25 @@ export const presets = {
     feedbackDecay:      0.92,
     mirrorMode:         3,       // quad mirror
     kaleidoscopeAngle:  0.0,
+    mirrorTarget:       2,       // both
     feedbackBlendMode:  1,       // screen -- fades to white
-    shapeType:          4,       // diamond
-    shapeFreqX:         0.3,
-    shapeFreqY:         0.3,
-    shapeRadius:        0.15,
-    shapeRadiusModAmt:  0.08,
-    shapeRadiusModFreq: 0.3,
+    shapeWaveform:      4,       // diamond
+    shapeFrequency:     5.0,
+    shapeAngle:         0.0,
+    shapeThickness:     0.6,
     shapeSoftness:      0.06,
-    shapeRingWidth:     0.02,
-    shapeLineAngle:     0.0,
-    shapeLineThickness: 0.01,
+    shapePhaseOffset:   0.0,
+    shapeFractalAmount: 0,
+    shapeFractalAngle:  0.0,
     movementMode:       1,       // lissajous
     movementAmplitude:  0.25,
     movementPhase:      1.571,   // PI/2 -- figure-8
+    movementSpeed:      0.3,
     movementSpiralSpeed:  1.0,
-    movementSpiralExpand: 0.1,
     movementScrollAngle:  0.0,
     movementScrollSpeed:  0.5,
     movementBounceSpeed:  0.3,
-    hueRotationSpeed:   0.002,
+    hueRotationSpeed:   0.01,
     baseBrightness:     1.0,
     saturation:         0.8,
     shapeHue:           0.3,
@@ -239,30 +236,29 @@ export const presets = {
     feedbackDecay:      0.96,
     mirrorMode:         6,       // kaleidoscope 8-fold
     kaleidoscopeAngle:  0.3,     // slight rotation offset for visual interest
+    mirrorTarget:       2,       // both -- shape and feedback mirrored
     feedbackBlendMode:  0,       // multiply
-    shapeType:          6,       // triangle
-    shapeFreqX:         1.3,
-    shapeFreqY:         0.9,
-    shapeRadius:        0.05,
-    shapeRadiusModAmt:  0.04,
-    shapeRadiusModFreq: 1.8,
+    shapeWaveform:      5,       // triangle
+    shapeFrequency:     3.0,
+    shapeAngle:         0.0,
+    shapeThickness:     0.5,
     shapeSoftness:      0.02,
-    shapeRingWidth:     0.02,
-    shapeLineAngle:     0.0,
-    shapeLineThickness: 0.01,
+    shapePhaseOffset:   0.0,
+    shapeFractalAmount: 2,       // 2-fold fractal
+    shapeFractalAngle:  0.0,
     movementMode:       4,       // bounce
     movementAmplitude:  0.3,
     movementPhase:      0.0,
+    movementSpeed:      1.3,
     movementSpiralSpeed:  1.0,
-    movementSpiralExpand: 0.1,
     movementScrollAngle:  0.0,
     movementScrollSpeed:  0.5,
     movementBounceSpeed:  0.4,
-    hueRotationSpeed:   0.004,
+    hueRotationSpeed:   0.015,
     baseBrightness:     1.0,
     saturation:         1.3,
-    shapeHue:           0.0,
-    shapeColorSat:      0.0,
+    shapeHue:           0.8,
+    shapeColorSat:      1.0,
     colorMode:          3,       // negative
     colorPosterizeLevels: 6,
     colorGradientHue1:  0.66,
@@ -270,7 +266,7 @@ export const presets = {
     colorGradientHue3:  0.15,
   },
 
-  'Cross Weave': {
+  'Sine Bars': {
     feedbackRotation:   0.015,
     feedbackZoom:       1.003,
     feedbackXShift:     0.0,
@@ -278,26 +274,25 @@ export const presets = {
     feedbackDecay:      0.97,
     mirrorMode:         1,       // horizontal mirror
     kaleidoscopeAngle:  0.0,
+    mirrorTarget:       2,
     feedbackBlendMode:  0,
-    shapeType:          3,       // cross
-    shapeFreqX:         0.8,
-    shapeFreqY:         0.6,
-    shapeRadius:        0.1,
-    shapeRadiusModAmt:  0.03,
-    shapeRadiusModFreq: 1.0,
+    shapeWaveform:      0,       // sine
+    shapeFrequency:     6.0,
+    shapeAngle:         0.0,
+    shapeThickness:     0.5,
     shapeSoftness:      0.015,
-    shapeRingWidth:     0.02,
-    shapeLineAngle:     0.0,
-    shapeLineThickness: 0.008,
+    shapePhaseOffset:   0.0,
+    shapeFractalAmount: 0,
+    shapeFractalAngle:  0.0,
     movementMode:       3,       // directional scroll
     movementAmplitude:  0.3,
     movementPhase:      0.0,
+    movementSpeed:      0.8,
     movementSpiralSpeed:  1.0,
-    movementSpiralExpand: 0.1,
-    movementScrollAngle:  0.785,   // ~45 degrees
+    movementScrollAngle:  0.0,
     movementScrollSpeed:  0.3,
     movementBounceSpeed:  0.3,
-    hueRotationSpeed:   0.005,
+    hueRotationSpeed:   0.012,
     baseBrightness:     1.1,
     saturation:         1.2,
     shapeHue:           0.6,
@@ -309,7 +304,7 @@ export const presets = {
     colorGradientHue3:  0.15,
   },
 
-  'Laser Scan': {
+  'Digital Grid': {
     feedbackRotation:   0.008,
     feedbackZoom:       1.008,
     feedbackXShift:     0.002,
@@ -317,30 +312,29 @@ export const presets = {
     feedbackDecay:      0.94,
     mirrorMode:         0,
     kaleidoscopeAngle:  0.0,
+    mirrorTarget:       2,
     feedbackBlendMode:  2,       // soft burn
-    shapeType:          2,       // line
-    shapeFreqX:         1.5,
-    shapeFreqY:         0.4,
-    shapeRadius:        0.18,
-    shapeRadiusModAmt:  0.06,
-    shapeRadiusModFreq: 0.5,
-    shapeSoftness:      0.01,
-    shapeRingWidth:     0.02,
-    shapeLineAngle:     0.785,   // ~45 degrees
-    shapeLineThickness: 0.006,
+    shapeWaveform:      2,       // square
+    shapeFrequency:     10.0,
+    shapeAngle:         0.785,   // ~45 degrees
+    shapeThickness:     0.3,
+    shapeSoftness:      0.005,
+    shapePhaseOffset:   0.0,
+    shapeFractalAmount: 4,       // 8-fold fractal
+    shapeFractalAngle:  0.0,
     movementMode:       1,       // lissajous
     movementAmplitude:  0.35,
     movementPhase:      2.094,   // 2*PI/3 -- interesting loop
+    movementSpeed:      1.5,
     movementSpiralSpeed:  1.0,
-    movementSpiralExpand: 0.1,
     movementScrollAngle:  0.0,
     movementScrollSpeed:  0.5,
     movementBounceSpeed:  0.3,
-    hueRotationSpeed:   0.006,
+    hueRotationSpeed:   0.018,
     baseBrightness:     1.2,
     saturation:         1.4,
-    shapeHue:           0.0,
-    shapeColorSat:      0.0,
+    shapeHue:           0.15,
+    shapeColorSat:      1.0,
     colorMode:          0,
     colorPosterizeLevels: 6,
     colorGradientHue1:  0.66,

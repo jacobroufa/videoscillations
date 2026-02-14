@@ -65,17 +65,21 @@ async function main() {
     feedback: getUniformLocations(gl, programs.feedback, [
       'uPrevFrame', 'uResolution', 'uRotation', 'uZoom',
       'uXShift', 'uYShift', 'uDecay', 'uHueShift',
-      'uMirrorMode', 'uKaleidoscopeAngle', 'uBlendMode',
+      'uMirrorMode', 'uKaleidoscopeAngle', 'uMirrorTarget', 'uBlendMode',
     ]),
     shape: getUniformLocations(gl, programs.shape, [
-      'uResolution', 'uShapeCenter', 'uShapeRadius', 'uShapeSoftness',
-      'uShapeType', 'uShapeRingWidth', 'uShapeLineAngle', 'uShapeLineThickness',
+      'uResolution',
+      'uShapeWaveform', 'uShapeFrequency', 'uShapeAngle',
+      'uShapeThickness', 'uShapeSoftness', 'uShapePhaseOffset',
+      'uShapeFractalAmount', 'uShapeFractalAngle',
       'uShapeHue', 'uShapeColorSat',
+      'uMirrorMode', 'uKaleidoscopeAngle', 'uMirrorTarget',
     ]),
     display: getUniformLocations(gl, programs.display, [
       'uFrame', 'uBrightness', 'uSaturation',
       'uColorMode', 'uPosterizeLevels',
       'uGradientHue1', 'uGradientHue2', 'uGradientHue3',
+      'uMirrorMode', 'uKaleidoscopeAngle', 'uMirrorTarget',
     ]),
   };
 

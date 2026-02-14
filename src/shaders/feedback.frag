@@ -8,7 +8,7 @@ precision highp float;
 //   - Rotation (around screen center)
 //   - Zoom / scale (from screen center)
 //   - X/Y translation
-//   - Mirror / kaleidoscope symmetry
+//   - Mirror / kaleidoscope symmetry (conditional on mirrorTarget)
 //   - Decay (fade toward black, controlling trail persistence)
 //   - Hue rotation (applied to the feedback so each generation of trails
 //     gets progressively color-shifted, creating rainbow trails)
@@ -28,10 +28,13 @@ uniform float     uDecay;        // trail persistence (0..1)
 uniform float     uHueShift;     // hue rotation per frame (radians)
 uniform int       uMirrorMode;   // 0=none,1=H,2=V,3=quad,4=kal2,5=kal4,6=kal8
 uniform float     uKaleidoscopeAngle; // rotation offset for kaleidoscope wedge
+uniform int       uMirrorTarget; // 0=feedback,1=shape,2=both,3=output
 uniform int       uBlendMode;    // 0=multiply,1=screen,2=soft burn,3=freeze
 
 in  vec2 vUV;
 out vec4 fragColor;
+
+const float TAU = 6.28318530718;
 
 // Rodrigues' rotation formula for hue shifting in RGB space.
 // Rotates the color vector around the (1,1,1) axis (the luminance axis).
@@ -49,7 +52,7 @@ vec2 kaleidoscope(vec2 uv, int segments, float angleOffset) {
     vec2 centered = uv - 0.5;
     float angle = atan(centered.y, centered.x) + angleOffset;
     float radius = length(centered);
-    float wedge = 3.14159265 * 2.0 / float(segments);
+    float wedge = TAU / float(segments);
     angle = mod(angle, wedge);
     if (angle > wedge * 0.5) {
         angle = wedge - angle;
@@ -100,8 +103,11 @@ void main() {
     // 5. Back to [0, 1] UV space.
     vec2 sampleUV = centered + 0.5;
 
-    // 6. Apply mirror/kaleidoscope (after transforms, before sampling).
-    sampleUV = applyMirror(sampleUV, uMirrorMode, uKaleidoscopeAngle);
+    // 6. Apply mirror/kaleidoscope conditionally based on mirrorTarget.
+    //    Apply when target is 0 (feedback only) or 2 (both).
+    if (uMirrorTarget == 0 || uMirrorTarget == 2) {
+        sampleUV = applyMirror(sampleUV, uMirrorMode, uKaleidoscopeAngle);
+    }
 
     // 7. Sample the previous frame with linear filtering for smooth trails.
     vec4 prev = texture(uPrevFrame, sampleUV);

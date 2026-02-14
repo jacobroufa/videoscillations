@@ -5,8 +5,9 @@ precision highp float;
 // Display / output shader.
 //
 // Reads the composited frame (feedback + shape already blended via GL
-// hardware blending) and applies color mode processing, then final
-// brightness and saturation adjustments before outputting to the screen.
+// hardware blending) and applies color mode processing, optional mirror
+// (when mirrorTarget=3, output mode), then final brightness and saturation
+// adjustments before outputting to the screen.
 //
 // Color modes:
 //   0 - Direct     (original behavior: just brightness + saturation)
@@ -25,8 +26,15 @@ uniform float     uGradientHue1; // gradient: dark-end hue
 uniform float     uGradientHue2; // gradient: mid hue
 uniform float     uGradientHue3; // gradient: bright-end hue
 
+// Mirror uniforms for output mode (mirrorTarget=3)
+uniform int       uMirrorMode;          // 0=none,1=H,2=V,3=quad,4=kal2,5=kal4,6=kal8
+uniform float     uKaleidoscopeAngle;   // rotation offset for kaleidoscope wedge
+uniform int       uMirrorTarget;        // 0=feedback,1=shape,2=both,3=output
+
 in  vec2 vUV;
 out vec4 fragColor;
+
+const float TAU = 6.28318530718;
 
 // -------------------------------------------------------------------------
 // Utility functions
@@ -47,6 +55,40 @@ vec3 hsv2rgb(float h, float s, float v) {
 // Luminance of an RGB color.
 float luminance(vec3 color) {
     return dot(color, vec3(0.2126, 0.7152, 0.0722));
+}
+
+// -------------------------------------------------------------------------
+// Mirror / kaleidoscope functions (identical to feedback.frag and shape.frag)
+// -------------------------------------------------------------------------
+
+vec2 kaleidoscope(vec2 uv, int segments, float angleOffset) {
+    vec2 centered = uv - 0.5;
+    float angle = atan(centered.y, centered.x) + angleOffset;
+    float radius = length(centered);
+    float wedge = TAU / float(segments);
+    angle = mod(angle, wedge);
+    if (angle > wedge * 0.5) {
+        angle = wedge - angle;
+    }
+    centered = vec2(cos(angle), sin(angle)) * radius;
+    return centered + 0.5;
+}
+
+vec2 applyMirror(vec2 uv, int mode, float kalAngle) {
+    if (mode == 1) {
+        uv.x = 0.5 + abs(uv.x - 0.5);
+    } else if (mode == 2) {
+        uv.y = 0.5 + abs(uv.y - 0.5);
+    } else if (mode == 3) {
+        uv = 0.5 + abs(uv - 0.5);
+    } else if (mode == 4) {
+        uv = kaleidoscope(uv, 2, kalAngle);
+    } else if (mode == 5) {
+        uv = kaleidoscope(uv, 4, kalAngle);
+    } else if (mode == 6) {
+        uv = kaleidoscope(uv, 8, kalAngle);
+    }
+    return uv;
 }
 
 // -------------------------------------------------------------------------
@@ -92,7 +134,14 @@ vec3 thermal(float t) {
 // -------------------------------------------------------------------------
 
 void main() {
-    vec3 color = texture(uFrame, vUV).rgb;
+    vec2 uv = vUV;
+
+    // Apply mirror in output mode (mirrorTarget=3).
+    if (uMirrorTarget == 3) {
+        uv = applyMirror(uv, uMirrorMode, uKaleidoscopeAngle);
+    }
+
+    vec3 color = texture(uFrame, uv).rgb;
 
     // Apply color mode processing before brightness/saturation.
     if (uColorMode == 1) {
