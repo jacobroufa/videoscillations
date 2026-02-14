@@ -1195,6 +1195,17 @@ function createSlider(key, def) {
   const labelEl = document.createElement('label');
   labelEl.className = 'slider-label';
   labelEl.textContent = def.label;
+  labelEl.style.cursor = 'pointer';
+  labelEl.addEventListener('click', () => {
+    const defaults = getDefaults();
+    if (key in defaults) {
+      const defaultVal = Math.min(def.max, Math.max(def.min, defaults[key]));
+      params[key] = defaultVal;
+      input.value = defaultVal;
+      valueEl.textContent = formatValue(defaultVal, def.step);
+      updateControlVisibility();
+    }
+  });
 
   const valueEl = document.createElement('span');
   valueEl.className = 'slider-value';

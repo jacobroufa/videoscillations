@@ -125,6 +125,16 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      cursor: pointer;
+      transition: color 0.15s ease, opacity 0.1s ease;
+    }
+
+    .slider-label:hover {
+      color: #0ff;
+    }
+
+    .slider-label:active {
+      opacity: 0.6;
     }
 
     .slider-value {
