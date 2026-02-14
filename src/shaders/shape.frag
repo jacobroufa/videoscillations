@@ -24,20 +24,22 @@ precision highp float;
 
 // -- Osc1 uniforms --------------------------------------------------------
 uniform vec2  uResolution;
-uniform int   uShapeWaveform;       // waveform type selector (0-5)
-uniform float uShapeFrequency;      // repetitions across screen
-uniform float uShapeAngle;          // rotation of waveform pattern (radians)
-uniform float uShapeThickness;      // duty cycle (0.0-1.0)
-uniform float uShapeSoftness;       // edge softness / anti-aliasing width
-uniform float uShapePhaseOffset;    // waveform phase offset (X axis / radial)
-uniform float uShapePhaseOffsetY;   // waveform phase offset (Y axis, for 2D movement)
-uniform int   uShapeFractalAmount;  // 0=off, 1-6 = increasing fold counts
-uniform float uShapeFractalAngle;   // fractal mirror axis rotation
-uniform float uShapeHue;            // shape base hue (0-1, HSV)
-uniform float uShapeColorSat;       // shape color saturation (0 = white)
+uniform int   uOsc1Enabled;          // 0=off, 1=on
+uniform int   uOsc1BlendMode;        // reserved for future use
+uniform int   uOsc1Waveform;         // waveform type selector (0-5)
+uniform float uOsc1Frequency;        // repetitions across screen
+uniform float uOsc1Angle;            // rotation of waveform pattern (radians)
+uniform float uOsc1Thickness;        // duty cycle (0.0-1.0)
+uniform float uOsc1Softness;         // edge softness / anti-aliasing width
+uniform float uOsc1PhaseOffset;      // waveform phase offset (X axis / radial)
+uniform float uOsc1PhaseOffsetY;     // waveform phase offset (Y axis, for 2D movement)
+uniform int   uOsc1FractalAmount;    // 0=off, 1-6 = increasing fold counts
+uniform float uOsc1FractalAngle;     // fractal mirror axis rotation
+uniform float uOsc1Hue;              // shape base hue (0-1, HSV)
+uniform float uOsc1ColorSat;         // shape color saturation (0 = white)
 
-// -- Polarization ---------------------------------------------------------
-uniform float uPolarizationAngle;   // additional UV rotation (0 to 2*PI)
+// -- Osc1 Polarization ----------------------------------------------------
+uniform float uOsc1PolarizationAngle; // additional UV rotation (0 to 2*PI)
 
 // -- Osc2 uniforms --------------------------------------------------------
 uniform int   uOsc2Enabled;         // 0=off, 1=on
@@ -53,6 +55,9 @@ uniform float uOsc2FractalAngle;    // fractal mirror axis rotation
 uniform float uOsc2Hue;             // shape base hue (0-1, HSV)
 uniform float uOsc2ColorSat;        // shape color saturation (0 = white)
 uniform int   uOsc2BlendMode;       // 0=Add,1=Multiply,2=Mask,3=Difference,4=Phase Mod
+
+// -- Osc2 Polarization ----------------------------------------------------
+uniform float uOsc2PolarizationAngle; // additional UV rotation (0 to 2*PI)
 
 // Mirror uniforms (shared with feedback.frag and composite.frag)
 uniform int   uMirrorMode;          // 0=none,1=H,2=V,3=quad,4=kal2,5=kal4,6=kal8
@@ -298,6 +303,9 @@ void main() {
         // Apply Osc2 fractalization.
         uv2 = applyFractal(uv2, uOsc2FractalAmount, uOsc2FractalAngle);
 
+        // Apply Osc2 polarization rotation.
+        uv2 = rotateUV(uv2, uOsc2PolarizationAngle);
+
         // Apply Osc2 2D phase offset.
         uv2.x += uOsc2PhaseOffset;
         uv2.y += uOsc2PhaseOffsetY;
@@ -316,62 +324,76 @@ void main() {
     // ------------------------------------------------------------------
     // Oscillator 1 evaluation
     // ------------------------------------------------------------------
-    vec2 uv1 = uv;
+    float osc1Shape = 0.0;
+    vec3 osc1Color = vec3(0.0);
 
-    // Apply Osc1 fractalization before waveform evaluation.
-    uv1 = applyFractal(uv1, uShapeFractalAmount, uShapeFractalAngle);
+    if (uOsc1Enabled == 1) {
+        vec2 uv1 = uv;
 
-    // Apply polarization rotation (separate spatial transform from shapeAngle).
-    uv1 = rotateUV(uv1, uPolarizationAngle);
+        // Apply Osc1 fractalization before waveform evaluation.
+        uv1 = applyFractal(uv1, uOsc1FractalAmount, uOsc1FractalAngle);
 
-    // Apply 2D phase offset as UV translation BEFORE rotation.
-    float osc1PhaseX = uShapePhaseOffset;
-    float osc1PhaseY = uShapePhaseOffsetY;
+        // Apply polarization rotation (separate spatial transform from osc1Angle).
+        uv1 = rotateUV(uv1, uOsc1PolarizationAngle);
 
-    // Phase Mod: Osc2's brightness modulates Osc1's phase input.
-    if (uOsc2Enabled == 1 && uOsc2BlendMode == 4) {
-        osc1PhaseX += osc2Shape * 0.5; // scale for usable FM depth
+        // Apply 2D phase offset as UV translation BEFORE rotation.
+        float osc1PhaseX = uOsc1PhaseOffset;
+        float osc1PhaseY = uOsc1PhaseOffsetY;
+
+        // Phase Mod: Osc2's brightness modulates Osc1's phase input.
+        if (uOsc2Enabled == 1 && uOsc2BlendMode == 4) {
+            osc1PhaseX += osc2Shape * 0.5; // scale for usable FM depth
+        }
+
+        uv1.x += osc1PhaseX;
+        uv1.y += osc1PhaseY;
+
+        // Apply Osc1 rotation around center.
+        uv1 = rotateUV(uv1, uOsc1Angle);
+
+        // Evaluate Osc1 waveform.
+        osc1Shape = evaluateOscillator(uv1, aspect, uOsc1Waveform, uOsc1Frequency,
+                                          uOsc1Thickness, uOsc1Softness);
+
+        // Osc1 color.
+        osc1Color = hsv2rgb(uOsc1Hue, uOsc1ColorSat, 1.0);
     }
-
-    uv1.x += osc1PhaseX;
-    uv1.y += osc1PhaseY;
-
-    // Apply Osc1 rotation around center.
-    uv1 = rotateUV(uv1, uShapeAngle);
-
-    // Evaluate Osc1 waveform.
-    float osc1Shape = evaluateOscillator(uv1, aspect, uShapeWaveform, uShapeFrequency,
-                                          uShapeThickness, uShapeSoftness);
-
-    // Osc1 color.
-    vec3 osc1Color = hsv2rgb(uShapeHue, uShapeColorSat, 1.0);
 
     // ------------------------------------------------------------------
     // Combine oscillators
     // ------------------------------------------------------------------
-    vec3 finalColor;
+    vec3 finalColor = vec3(0.0);
 
-    if (uOsc2Enabled == 0) {
+    bool osc1On = uOsc1Enabled == 1;
+    bool osc2On = uOsc2Enabled == 1;
+
+    if (osc1On && osc2On) {
+        // Both enabled: combine using osc2BlendMode.
+        if (uOsc2BlendMode == 0) {
+            // Add: both oscillators contribute light independently.
+            finalColor = osc1Color * osc1Shape + osc2Color * osc2Shape;
+        } else if (uOsc2BlendMode == 1) {
+            // Multiply: Osc2 modulates Osc1's brightness (ring mod / AM).
+            finalColor = osc1Color * osc1Shape * osc2Shape;
+        } else if (uOsc2BlendMode == 2) {
+            // Mask: Osc1 only shows where Osc2 is bright (stencil).
+            finalColor = osc1Color * osc1Shape * step(0.01, osc2Shape);
+        } else if (uOsc2BlendMode == 3) {
+            // Difference: absolute difference creates interference patterns.
+            vec3 c1 = osc1Color * osc1Shape;
+            vec3 c2 = osc2Color * osc2Shape;
+            finalColor = abs(c1 - c2);
+        } else {
+            // Phase Mod (mode 4): Osc2 already routed into Osc1's phase above.
+            // Output Osc1 only (the modulated result).
+            finalColor = osc1Color * osc1Shape;
+        }
+    } else if (osc1On) {
         // Only Osc1 active.
         finalColor = osc1Color * osc1Shape;
-    } else if (uOsc2BlendMode == 0) {
-        // Add: both oscillators contribute light independently.
-        finalColor = osc1Color * osc1Shape + osc2Color * osc2Shape;
-    } else if (uOsc2BlendMode == 1) {
-        // Multiply: Osc2 modulates Osc1's brightness (ring mod / AM).
-        finalColor = osc1Color * osc1Shape * osc2Shape;
-    } else if (uOsc2BlendMode == 2) {
-        // Mask: Osc1 only shows where Osc2 is bright (stencil).
-        finalColor = osc1Color * osc1Shape * step(0.01, osc2Shape);
-    } else if (uOsc2BlendMode == 3) {
-        // Difference: absolute difference creates interference patterns.
-        vec3 c1 = osc1Color * osc1Shape;
-        vec3 c2 = osc2Color * osc2Shape;
-        finalColor = abs(c1 - c2);
-    } else {
-        // Phase Mod (mode 4): Osc2 already routed into Osc1's phase above.
-        // Output Osc1 only (the modulated result).
-        finalColor = osc1Color * osc1Shape;
+    } else if (osc2On) {
+        // Only Osc2 active.
+        finalColor = osc2Color * osc2Shape;
     }
 
     fragColor = vec4(finalColor, 1.0);

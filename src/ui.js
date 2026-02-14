@@ -8,6 +8,12 @@
  * The panel has two top-level tabs:
  *   1. Controls -- parameter sliders and action buttons
  *   2. Presets  -- Factory (read-only) and My Presets (user CRUD)
+ *
+ * Controls tab layout:
+ *   - Action buttons (Randomize, Reset, Fullscreen)
+ *   - Feedback section (always visible)
+ *   - Color section (global, always visible)
+ *   - Oscillators section with [Osc 1] [Osc 2] sub-tabs
  */
 
 import { params, getDefaults } from './params.js';
@@ -21,69 +27,67 @@ import { captureScreenshot, createThumbnail } from './screenshot.js';
 
 // -------------------------------------------------------------------------
 // Control definitions -- maps each param to its slider config.
+// Grouped by oscillator prefix for the tabbed UI.
 // -------------------------------------------------------------------------
 
-const CONTROL_DEFS = {
-  // Feedback group (mirrorMode, mirrorTarget, and feedbackBlendMode are handled by button selectors)
-  feedbackRotation:   { label: 'Rotation',       min: -0.1,  max: 0.1,  step: 0.001,  group: 'Feedback' },
-  feedbackZoom:       { label: 'Zoom',            min: 0.95,  max: 1.05, step: 0.001,  group: 'Feedback' },
-  feedbackXShift:     { label: 'X Shift',         min: -0.05, max: 0.05, step: 0.001,  group: 'Feedback' },
-  feedbackYShift:     { label: 'Y Shift',         min: -0.05, max: 0.05, step: 0.001,  group: 'Feedback' },
-  feedbackDecay:      { label: 'Decay',           min: 0.8,   max: 1.0,  step: 0.005,  group: 'Feedback' },
-  kaleidoscopeAngle:  { label: 'Kal Angle',       min: 0.0,   max: 6.283, step: 0.01,  group: 'Feedback' },
-
-  // Shape group (shapeWaveform is handled by button selector)
-  shapeFrequency:     { label: 'Frequency',       min: 0.5,   max: 20.0, step: 0.1,    group: 'Shape' },
-  shapeAngle:         { label: 'Angle',           min: 0.0,   max: 6.283, step: 0.01,  group: 'Shape' },
-  shapeThickness:     { label: 'Thickness',       min: 0.01,  max: 0.99, step: 0.01,   group: 'Shape' },
-  shapeSoftness:      { label: 'Softness',        min: 0.0,   max: 0.1,  step: 0.005,  group: 'Shape' },
-  shapePhaseOffset:   { label: 'Phase Offset',    min: 0.0,   max: 6.283, step: 0.01,  group: 'Shape' },
-  polarizationAngle:  { label: 'Polarization',    min: 0.0,   max: 6.283, step: 0.01,  group: 'Shape' },
-  polarizationSpeed:  { label: 'Polar Speed',     min: -2.0,  max: 2.0,  step: 0.01,   group: 'Shape' },
-  shapeFractalAmount: { label: 'Fractal Amount',  min: 0,     max: 6,    step: 1,      group: 'Shape' },
-  shapeFractalAngle:  { label: 'Fractal Angle',   min: 0.0,   max: 6.283, step: 0.01,  group: 'Shape' },
-
-  // Angle LFO sub-section (within Shape group)
-  angleLFORate:       { label: 'LFO Rate',        min: 0.01,  max: 5.0,  step: 0.01,   group: 'Shape' },
-  angleLFODepth:      { label: 'LFO Depth',       min: 0.0,   max: 3.14159, step: 0.01, group: 'Shape' },
-
-  // Movement group (movementMode is handled by button selector)
-  movementSpeed:          { label: 'Speed',           min: 0.0,   max: 5.0,   step: 0.01,   group: 'Movement' },
-  movementAmplitude:      { label: 'Amplitude',       min: 0.0,   max: 0.5,   step: 0.01,   group: 'Movement' },
-  movementPhase:          { label: 'Phase',           min: 0.0,   max: 6.283, step: 0.01,   group: 'Movement' },
-  movementLissajousRatio: { label: 'Lissajous Ratio', min: 0.1,   max: 3.0,   step: 0.01,   group: 'Movement' },
-  movementSpiralSpeed:    { label: 'Spiral Speed',    min: 0.0,   max: 5.0,   step: 0.1,    group: 'Movement' },
-  movementScrollAngle:    { label: 'Scroll Angle',    min: 0.0,   max: 6.283, step: 0.01,   group: 'Movement' },
-  movementScrollSpeed:    { label: 'Scroll Speed',    min: 0.0,   max: 2.0,   step: 0.01,   group: 'Movement' },
-  movementBounceSpeed:    { label: 'Bounce Speed',    min: 0.0,   max: 2.0,   step: 0.01,   group: 'Movement' },
-
-  // Oscillator 2 group
-  osc2Frequency:          { label: 'Frequency',       min: 0.5,   max: 20.0, step: 0.1,    group: 'Oscillator 2' },
-  osc2Angle:              { label: 'Angle',           min: 0.0,   max: 6.283, step: 0.01,  group: 'Oscillator 2' },
-  osc2Thickness:          { label: 'Thickness',       min: 0.01,  max: 0.99, step: 0.01,   group: 'Oscillator 2' },
-  osc2Softness:           { label: 'Softness',        min: 0.0,   max: 0.1,  step: 0.005,  group: 'Oscillator 2' },
-  osc2PhaseOffset:        { label: 'Phase Offset',    min: 0.0,   max: 6.283, step: 0.01,  group: 'Oscillator 2' },
-  osc2Hue:                { label: 'Hue',             min: 0.0,   max: 1.0,  step: 0.01,   group: 'Oscillator 2' },
-  osc2ColorSat:           { label: 'Color Sat',       min: 0.0,   max: 1.0,  step: 0.01,   group: 'Oscillator 2' },
-  osc2FractalAmount:      { label: 'Fractal Amount',  min: 0,     max: 6,    step: 1,      group: 'Oscillator 2' },
-  osc2FractalAngle:       { label: 'Fractal Angle',   min: 0.0,   max: 6.283, step: 0.01,  group: 'Oscillator 2' },
-  osc2MovementSpeed:      { label: 'Move Speed',      min: 0.0,   max: 5.0,  step: 0.01,   group: 'Oscillator 2' },
-  osc2MovementAmplitude:  { label: 'Move Amplitude',  min: 0.0,   max: 0.5,  step: 0.01,   group: 'Oscillator 2' },
-  osc2MovementPhase:      { label: 'Move Phase',      min: 0.0,   max: 6.283, step: 0.01,  group: 'Oscillator 2' },
-
-  // Color group (colorMode is handled by button selector)
-  hueRotationSpeed:     { label: 'Hue Speed',       min: 0.0,   max: 0.05, step: 0.0005, group: 'Color' },
-  baseBrightness:       { label: 'Brightness',      min: 0.0,   max: 2.0,  step: 0.05,   group: 'Color' },
-  saturation:           { label: 'Saturation',      min: 0.0,   max: 2.0,  step: 0.05,   group: 'Color' },
-  shapeHue:             { label: 'Shape Hue',       min: 0.0,   max: 1.0,  step: 0.01,   group: 'Color' },
-  shapeColorSat:        { label: 'Shape Color Sat', min: 0.0,   max: 1.0,  step: 0.01,   group: 'Color' },
-  colorPosterizeLevels: { label: 'Posterize Levels',min: 2,     max: 16,   step: 1,      group: 'Color' },
-  colorGradientHue1:    { label: 'Gradient Hue 1',  min: 0.0,   max: 1.0,  step: 0.01,   group: 'Color' },
-  colorGradientHue2:    { label: 'Gradient Hue 2',  min: 0.0,   max: 1.0,  step: 0.01,   group: 'Color' },
-  colorGradientHue3:    { label: 'Gradient Hue 3',  min: 0.0,   max: 1.0,  step: 0.01,   group: 'Color' },
+// Feedback controls (always visible above oscillator tabs)
+const FEEDBACK_DEFS = {
+  feedbackRotation:   { label: 'Rotation',       min: -0.1,  max: 0.1,  step: 0.001  },
+  feedbackZoom:       { label: 'Zoom',            min: 0.95,  max: 1.05, step: 0.001  },
+  feedbackXShift:     { label: 'X Shift',         min: -0.05, max: 0.05, step: 0.001  },
+  feedbackYShift:     { label: 'Y Shift',         min: -0.05, max: 0.05, step: 0.001  },
+  feedbackDecay:      { label: 'Decay',           min: 0.8,   max: 1.0,  step: 0.005  },
+  kaleidoscopeAngle:  { label: 'Kal Angle',       min: 0.0,   max: 6.283, step: 0.01  },
 };
 
-// Waveform type names indexed by shapeWaveform value.
+// Global color controls (always visible above oscillator tabs)
+const GLOBAL_COLOR_DEFS = {
+  hueRotationSpeed:     { label: 'Hue Speed',       min: 0.0,   max: 0.05, step: 0.0005 },
+  baseBrightness:       { label: 'Brightness',      min: 0.0,   max: 2.0,  step: 0.05   },
+  saturation:           { label: 'Saturation',      min: 0.0,   max: 2.0,  step: 0.05   },
+  colorPosterizeLevels: { label: 'Posterize Levels',min: 2,     max: 16,   step: 1      },
+  colorGradientHue1:    { label: 'Gradient Hue 1',  min: 0.0,   max: 1.0,  step: 0.01   },
+  colorGradientHue2:    { label: 'Gradient Hue 2',  min: 0.0,   max: 1.0,  step: 0.01   },
+  colorGradientHue3:    { label: 'Gradient Hue 3',  min: 0.0,   max: 1.0,  step: 0.01   },
+};
+
+/**
+ * Per-oscillator slider definitions. Uses a suffix that gets prefixed
+ * with 'osc1' or 'osc2' at build time.
+ */
+const OSC_SLIDER_DEFS = {
+  Frequency:          { label: 'Frequency',       min: 0.5,   max: 20.0, step: 0.1    },
+  Angle:              { label: 'Angle',           min: 0.0,   max: 6.283, step: 0.01  },
+  Thickness:          { label: 'Thickness',       min: 0.01,  max: 0.99, step: 0.01   },
+  Softness:           { label: 'Softness',        min: 0.0,   max: 0.1,  step: 0.005  },
+  PhaseOffset:        { label: 'Phase Offset',    min: 0.0,   max: 6.283, step: 0.01  },
+  PolarizationAngle:  { label: 'Polarization',    min: 0.0,   max: 6.283, step: 0.01  },
+  PolarizationSpeed:  { label: 'Polar Speed',     min: -2.0,  max: 2.0,  step: 0.01   },
+  FractalAmount:      { label: 'Fractal Amount',  min: 0,     max: 6,    step: 1      },
+  FractalAngle:       { label: 'Fractal Angle',   min: 0.0,   max: 6.283, step: 0.01  },
+  Hue:                { label: 'Hue',             min: 0.0,   max: 1.0,  step: 0.01   },
+  ColorSat:           { label: 'Color Sat',       min: 0.0,   max: 1.0,  step: 0.01   },
+};
+
+/** Per-oscillator angle LFO slider definitions (suffix only). */
+const OSC_ANGLE_LFO_DEFS = {
+  AngleLFORate:  { label: 'LFO Rate',  min: 0.01,  max: 5.0,     step: 0.01 },
+  AngleLFODepth: { label: 'LFO Depth', min: 0.0,   max: 3.14159, step: 0.01 },
+};
+
+/** Per-oscillator movement slider definitions (suffix only). */
+const OSC_MOVEMENT_DEFS = {
+  MovementSpeed:          { label: 'Speed',           min: 0.0,   max: 5.0,   step: 0.01 },
+  MovementAmplitude:      { label: 'Amplitude',       min: 0.0,   max: 0.5,   step: 0.01 },
+  MovementPhase:          { label: 'Phase',           min: 0.0,   max: 6.283, step: 0.01 },
+  MovementLissajousRatio: { label: 'Lissajous Ratio', min: 0.1,   max: 3.0,   step: 0.01 },
+  MovementSpiralSpeed:    { label: 'Spiral Speed',    min: 0.0,   max: 5.0,   step: 0.1  },
+  MovementScrollAngle:    { label: 'Scroll Angle',    min: 0.0,   max: 6.283, step: 0.01 },
+  MovementScrollSpeed:    { label: 'Scroll Speed',    min: 0.0,   max: 2.0,   step: 0.01 },
+  MovementBounceSpeed:    { label: 'Bounce Speed',    min: 0.0,   max: 2.0,   step: 0.01 },
+};
+
+// Waveform type names indexed by waveform value.
 const WAVEFORM_NAMES = ['Sine', 'Tan', 'Square', 'Circle', 'Diamond', 'Triangle'];
 
 // Color mode names indexed by colorMode value.
@@ -101,14 +105,11 @@ const MIRROR_TARGET_NAMES = ['Feedback', 'Shape', 'Both', 'Output'];
 // Feedback blend mode names indexed by feedbackBlendMode value.
 const BLEND_MODE_NAMES = ['Multiply', 'Screen', 'Soft Burn', 'Freeze'];
 
-// Osc2 blend mode names.
-const OSC2_BLEND_MODE_NAMES = ['Add', 'Multiply', 'Mask', 'Difference', 'Phase Mod'];
+// Osc blend mode names.
+const OSC_BLEND_MODE_NAMES = ['Add', 'Multiply', 'Mask', 'Difference', 'Phase Mod'];
 
 // Angle LFO waveform names.
 const ANGLE_LFO_WAVEFORM_NAMES = ['Sine', 'Triangle', 'Saw', 'Square', 'S&H'];
-
-// Group ordering
-const GROUPS = ['Feedback', 'Shape', 'Oscillator 2', 'Movement', 'Color'];
 
 // -------------------------------------------------------------------------
 // Weighted random ranges for "randomize with taste".
@@ -124,56 +125,81 @@ const RANDOM_RANGES = {
   kaleidoscopeAngle:  { min: 0.0,    max: 6.283 },
   mirrorTarget:       { min: 0,      max: 3     },
   feedbackBlendMode:  { min: 0,      max: 3     },
-  shapeWaveform:      { min: 0,      max: 5     },
-  shapeFrequency:     { min: 1.0,    max: 12.0  },
-  shapeAngle:         { min: 0.0,    max: 6.283 },
-  shapeThickness:     { min: 0.1,    max: 0.9   },
-  shapeSoftness:      { min: 0.005,  max: 0.06  },
-  shapePhaseOffset:   { min: 0.0,    max: 6.283 },
-  polarizationAngle:  { min: 0.0,    max: 6.283 },
-  polarizationSpeed:  { min: -0.5,   max: 0.5   },
-  angleLFOEnabled:    { min: 0,      max: 1     },
-  angleLFOWaveform:   { min: 0,      max: 4     },
-  angleLFORate:       { min: 0.05,   max: 2.0   },
-  angleLFODepth:      { min: 0.0,    max: 1.57  },
-  shapeFractalAmount: { min: 0,      max: 6     },
-  shapeFractalAngle:  { min: 0.0,    max: 6.283 },
-  osc2Enabled:        { min: 0,      max: 1     },
-  osc2Waveform:       { min: 0,      max: 5     },
-  osc2Frequency:      { min: 1.0,    max: 12.0  },
-  osc2Angle:          { min: 0.0,    max: 6.283 },
-  osc2Thickness:      { min: 0.1,    max: 0.9   },
-  osc2Softness:       { min: 0.005,  max: 0.06  },
-  osc2PhaseOffset:    { min: 0.0,    max: 6.283 },
-  osc2Hue:            { min: 0.0,    max: 1.0   },
-  osc2ColorSat:       { min: 0.3,    max: 1.0   },
-  osc2BlendMode:      { min: 0,      max: 4     },
-  osc2MovementMode:   { min: 0,      max: 5     },
-  osc2MovementSpeed:  { min: 0.1,    max: 3.0   },
-  osc2MovementAmplitude: { min: 0.1, max: 0.45  },
-  osc2MovementPhase:  { min: 0.0,    max: 6.283 },
-  osc2FractalAmount:  { min: 0,      max: 6     },
-  osc2FractalAngle:   { min: 0.0,    max: 6.283 },
-  movementMode:           { min: 0,      max: 5     },
-  movementAmplitude:      { min: 0.1,    max: 0.45  },
-  movementPhase:          { min: 0.0,    max: 6.283 },
-  movementLissajousRatio: { min: 0.1,    max: 2.5   },
-  movementSpeed:          { min: 0.1,    max: 3.0   },
-  movementSpiralSpeed:    { min: 0.3,    max: 3.0   },
-  movementScrollAngle:    { min: 0.0,    max: 6.283 },
-  movementScrollSpeed:    { min: 0.1,    max: 1.0   },
-  movementBounceSpeed:    { min: 0.1,    max: 1.0   },
+
+  // Osc1
+  osc1Waveform:               { min: 0,      max: 5     },
+  osc1Frequency:              { min: 1.0,    max: 12.0  },
+  osc1Angle:                  { min: 0.0,    max: 6.283 },
+  osc1Thickness:              { min: 0.1,    max: 0.9   },
+  osc1Softness:               { min: 0.005,  max: 0.06  },
+  osc1PhaseOffset:            { min: 0.0,    max: 6.283 },
+  osc1PolarizationAngle:      { min: 0.0,    max: 6.283 },
+  osc1PolarizationSpeed:      { min: -0.5,   max: 0.5   },
+  osc1AngleLFOEnabled:        { min: 0,      max: 1     },
+  osc1AngleLFOWaveform:       { min: 0,      max: 4     },
+  osc1AngleLFORate:           { min: 0.05,   max: 2.0   },
+  osc1AngleLFODepth:          { min: 0.0,    max: 1.57  },
+  osc1FractalAmount:          { min: 0,      max: 6     },
+  osc1FractalAngle:           { min: 0.0,    max: 6.283 },
+  osc1Hue:                    { min: 0.0,    max: 1.0   },
+  osc1ColorSat:               { min: 0.3,    max: 1.0   },
+  osc1MovementMode:           { min: 0,      max: 5     },
+  osc1MovementAmplitude:      { min: 0.1,    max: 0.45  },
+  osc1MovementPhase:          { min: 0.0,    max: 6.283 },
+  osc1MovementLissajousRatio: { min: 0.1,    max: 2.5   },
+  osc1MovementSpeed:          { min: 0.1,    max: 3.0   },
+  osc1MovementSpiralSpeed:    { min: 0.3,    max: 3.0   },
+  osc1MovementScrollAngle:    { min: 0.0,    max: 6.283 },
+  osc1MovementScrollSpeed:    { min: 0.1,    max: 1.0   },
+  osc1MovementBounceSpeed:    { min: 0.1,    max: 1.0   },
+
+  // Osc2
+  osc2Enabled:                { min: 0,      max: 1     },
+  osc2Waveform:               { min: 0,      max: 5     },
+  osc2Frequency:              { min: 1.0,    max: 12.0  },
+  osc2Angle:                  { min: 0.0,    max: 6.283 },
+  osc2Thickness:              { min: 0.1,    max: 0.9   },
+  osc2Softness:               { min: 0.005,  max: 0.06  },
+  osc2PhaseOffset:            { min: 0.0,    max: 6.283 },
+  osc2PolarizationAngle:      { min: 0.0,    max: 6.283 },
+  osc2PolarizationSpeed:      { min: -0.5,   max: 0.5   },
+  osc2AngleLFOEnabled:        { min: 0,      max: 1     },
+  osc2AngleLFOWaveform:       { min: 0,      max: 4     },
+  osc2AngleLFORate:           { min: 0.05,   max: 2.0   },
+  osc2AngleLFODepth:          { min: 0.0,    max: 1.57  },
+  osc2Hue:                    { min: 0.0,    max: 1.0   },
+  osc2ColorSat:               { min: 0.3,    max: 1.0   },
+  osc2BlendMode:              { min: 0,      max: 4     },
+  osc2FractalAmount:          { min: 0,      max: 6     },
+  osc2FractalAngle:           { min: 0.0,    max: 6.283 },
+  osc2MovementMode:           { min: 0,      max: 5     },
+  osc2MovementSpeed:          { min: 0.1,    max: 3.0   },
+  osc2MovementAmplitude:      { min: 0.1,    max: 0.45  },
+  osc2MovementPhase:          { min: 0.0,    max: 6.283 },
+  osc2MovementLissajousRatio: { min: 0.1,    max: 2.5   },
+  osc2MovementSpiralSpeed:    { min: 0.3,    max: 3.0   },
+  osc2MovementScrollAngle:    { min: 0.0,    max: 6.283 },
+  osc2MovementScrollSpeed:    { min: 0.1,    max: 1.0   },
+  osc2MovementBounceSpeed:    { min: 0.1,    max: 1.0   },
+
+  // Global color
   hueRotationSpeed:     { min: 0.002, max: 0.03  },
   baseBrightness:       { min: 0.7,    max: 1.4   },
   saturation:           { min: 0.6,    max: 1.6   },
-  shapeHue:             { min: 0.0,    max: 1.0   },
-  shapeColorSat:        { min: 0.3,    max: 1.0   },
   colorMode:            { min: 0,      max: 4     },
   colorPosterizeLevels: { min: 2,      max: 12    },
   colorGradientHue1:    { min: 0.0,    max: 1.0   },
   colorGradientHue2:    { min: 0.0,    max: 1.0   },
   colorGradientHue3:    { min: 0.0,    max: 1.0   },
 };
+
+// Integer param keys for randomization (use floor instead of snap).
+const INTEGER_RANDOM_KEYS = new Set([
+  'mirrorMode', 'mirrorTarget', 'feedbackBlendMode', 'colorMode', 'colorPosterizeLevels',
+  'osc1Waveform', 'osc1FractalAmount', 'osc1AngleLFOEnabled', 'osc1AngleLFOWaveform', 'osc1MovementMode',
+  'osc2Enabled', 'osc2Waveform', 'osc2BlendMode', 'osc2FractalAmount',
+  'osc2AngleLFOEnabled', 'osc2AngleLFOWaveform', 'osc2MovementMode',
+]);
 
 // -------------------------------------------------------------------------
 // State
@@ -182,21 +208,26 @@ const RANDOM_RANGES = {
 let panel = null;
 let hideTimeout = null;
 let mouseOverPanel = false;
-let sliderElements = {};  // key -> input element, for syncing on preset/reset
-let waveformButtons = [];
-let movementModeButtons = [];
+let sliderElements = {};  // key -> { input, valueEl, def }, for syncing on preset/reset
+
+// Per-oscillator button state
+const oscState = {
+  osc1: { waveformButtons: [], blendModeButtons: [], movementModeButtons: [],
+           angleLFOToggleBtn: null, angleLFOWaveformButtons: [],
+           enableBtn: null, controlsContainer: null, angleLFOControlsContainer: null },
+  osc2: { waveformButtons: [], blendModeButtons: [], movementModeButtons: [],
+           angleLFOToggleBtn: null, angleLFOWaveformButtons: [],
+           enableBtn: null, controlsContainer: null, angleLFOControlsContainer: null },
+};
+
+// Global button state
 let colorModeButtons = [];
 let mirrorModeButtons = [];
 let mirrorTargetButtons = [];
 let blendModeButtons = [];
-let osc2WaveformButtons = [];
-let osc2BlendModeButtons = [];
-let osc2MovementModeButtons = [];
-let angleLFOToggleBtn = null;
-let angleLFOWaveformButtons = [];
-let osc2EnableBtn = null;
-let osc2ControlsContainer = null;
-let angleLFOControlsContainer = null;
+
+// Active oscillator tab
+let activeOscTab = 'osc1';
 
 // Renderer reference for screenshot capture.
 let _renderer = null;
@@ -275,7 +306,7 @@ function createPanel() {
 }
 
 // -------------------------------------------------------------------------
-// Controls tab builder (existing UI moved under a tab)
+// Controls tab builder
 // -------------------------------------------------------------------------
 
 function buildControlsContent(container) {
@@ -303,87 +334,391 @@ function buildControlsContent(container) {
   actionsSection.appendChild(fullscreenBtn);
   container.appendChild(actionsSection);
 
-  // -- Grouped parameter sliders ------------------------------------------
-  for (const group of GROUPS) {
-    const section = document.createElement('div');
-    section.className = 'panel-section';
+  // -- Feedback section ---------------------------------------------------
+  const feedbackSection = document.createElement('div');
+  feedbackSection.className = 'panel-section';
 
-    const heading = document.createElement('h3');
-    heading.className = 'section-label';
-    heading.textContent = group;
-    section.appendChild(heading);
+  const feedbackHeading = document.createElement('h3');
+  feedbackHeading.className = 'section-label';
+  feedbackHeading.textContent = 'Feedback';
+  feedbackSection.appendChild(feedbackHeading);
 
-    // Insert mirror mode, mirror target, and blend mode selectors at the top of the Feedback group.
-    if (group === 'Feedback') {
-      section.appendChild(createMirrorModeSelector());
-      section.appendChild(createMirrorTargetSelector());
-      section.appendChild(createBlendModeSelector());
-    }
+  feedbackSection.appendChild(createMirrorModeSelector());
+  feedbackSection.appendChild(createMirrorTargetSelector());
+  feedbackSection.appendChild(createBlendModeSelector());
 
-    // Insert waveform selector at the top of the Shape group.
-    if (group === 'Shape') {
-      section.appendChild(createWaveformSelector());
-    }
-
-    // Insert movement mode selector at the top of the Movement group.
-    if (group === 'Movement') {
-      section.appendChild(createMovementModeSelector());
-    }
-
-    // Insert color mode selector at the top of the Color group.
-    if (group === 'Color') {
-      section.appendChild(createColorModeSelector());
-    }
-
-    // Insert Osc2 enable toggle and controls at the top of Oscillator 2 group.
-    if (group === 'Oscillator 2') {
-      section.appendChild(createOsc2EnableToggle());
-
-      // Create a container for all Osc2 controls (collapses when disabled).
-      osc2ControlsContainer = document.createElement('div');
-      osc2ControlsContainer.className = 'collapsible-section';
-      if (!params.osc2Enabled) osc2ControlsContainer.classList.add('collapsed');
-
-      osc2ControlsContainer.appendChild(createOsc2BlendModeSelector());
-      osc2ControlsContainer.appendChild(createOsc2WaveformSelector());
-      osc2ControlsContainer.appendChild(createOsc2MovementModeSelector());
-
-      // Add Osc2 sliders into the container.
-      for (const [key, def] of Object.entries(CONTROL_DEFS)) {
-        if (def.group !== 'Oscillator 2') continue;
-        osc2ControlsContainer.appendChild(createSlider(key, def));
-      }
-
-      section.appendChild(osc2ControlsContainer);
-    }
-
-    // For Shape group, add sliders then angle LFO sub-section.
-    if (group === 'Shape') {
-      // Add Shape sliders (excluding LFO ones which come after).
-      for (const [key, def] of Object.entries(CONTROL_DEFS)) {
-        if (def.group !== group) continue;
-        if (key === 'angleLFORate' || key === 'angleLFODepth') continue;
-        section.appendChild(createSlider(key, def));
-      }
-
-      // Angle LFO sub-section.
-      section.appendChild(createAngleLFOSection());
-    } else if (group !== 'Oscillator 2') {
-      // For other groups (not Shape, not Osc2), add sliders normally.
-      for (const [key, def] of Object.entries(CONTROL_DEFS)) {
-        if (def.group !== group) continue;
-        section.appendChild(createSlider(key, def));
-      }
-    }
-
-    container.appendChild(section);
+  for (const [key, def] of Object.entries(FEEDBACK_DEFS)) {
+    feedbackSection.appendChild(createSlider(key, def));
   }
+
+  container.appendChild(feedbackSection);
+
+  // -- Color section (global) ---------------------------------------------
+  const colorSection = document.createElement('div');
+  colorSection.className = 'panel-section';
+
+  const colorHeading = document.createElement('h3');
+  colorHeading.className = 'section-label';
+  colorHeading.textContent = 'Color';
+  colorSection.appendChild(colorHeading);
+
+  colorSection.appendChild(createColorModeSelector());
+
+  for (const [key, def] of Object.entries(GLOBAL_COLOR_DEFS)) {
+    colorSection.appendChild(createSlider(key, def));
+  }
+
+  container.appendChild(colorSection);
+
+  // -- Oscillators section ------------------------------------------------
+  const oscSection = document.createElement('div');
+  oscSection.className = 'panel-section';
+
+  const oscHeading = document.createElement('h3');
+  oscHeading.className = 'section-label';
+  oscHeading.textContent = 'Oscillators';
+  oscSection.appendChild(oscHeading);
+
+  // Osc sub-tab bar
+  const oscTabBar = document.createElement('div');
+  oscTabBar.className = 'sub-tab-bar';
+
+  const osc1TabBtn = document.createElement('button');
+  osc1TabBtn.className = 'sub-tab-btn active';
+  osc1TabBtn.textContent = 'Osc 1';
+
+  const osc2TabBtn = document.createElement('button');
+  osc2TabBtn.className = 'sub-tab-btn';
+  osc2TabBtn.textContent = 'Osc 2';
+
+  oscTabBar.appendChild(osc1TabBtn);
+  oscTabBar.appendChild(osc2TabBtn);
+  oscSection.appendChild(oscTabBar);
+
+  // Osc1 tab content
+  const osc1Content = document.createElement('div');
+  osc1Content.className = 'sub-tab-content active';
+  buildOscillatorTab(osc1Content, 'osc1');
+  oscSection.appendChild(osc1Content);
+
+  // Osc2 tab content
+  const osc2Content = document.createElement('div');
+  osc2Content.className = 'sub-tab-content';
+  buildOscillatorTab(osc2Content, 'osc2');
+  oscSection.appendChild(osc2Content);
+
+  // Osc sub-tab switching
+  osc1TabBtn.addEventListener('click', () => {
+    osc1TabBtn.classList.add('active');
+    osc2TabBtn.classList.remove('active');
+    osc1Content.classList.add('active');
+    osc2Content.classList.remove('active');
+    activeOscTab = 'osc1';
+  });
+
+  osc2TabBtn.addEventListener('click', () => {
+    osc2TabBtn.classList.add('active');
+    osc1TabBtn.classList.remove('active');
+    osc2Content.classList.add('active');
+    osc1Content.classList.remove('active');
+    activeOscTab = 'osc2';
+  });
+
+  container.appendChild(oscSection);
 
   // -- Keyboard hint at the bottom ----------------------------------------
   const hint = document.createElement('div');
   hint.className = 'keyboard-hint';
   hint.innerHTML = '<kbd>Tab</kbd> toggle UI &nbsp; <kbd>Space</kbd> randomize &nbsp; <kbd>R</kbd> reset &nbsp; <kbd>F</kbd> fullscreen &nbsp; <kbd>S</kbd> save preset';
   container.appendChild(hint);
+}
+
+// -------------------------------------------------------------------------
+// Build oscillator tab content (identical structure for osc1 and osc2)
+// -------------------------------------------------------------------------
+
+function buildOscillatorTab(container, prefix) {
+  const state = oscState[prefix];
+
+  // Enable toggle
+  container.appendChild(createOscEnableToggle(prefix));
+
+  // Collapsible container for all osc controls
+  state.controlsContainer = document.createElement('div');
+  state.controlsContainer.className = 'collapsible-section';
+  if (!params[prefix + 'Enabled']) state.controlsContainer.classList.add('collapsed');
+
+  // Blend mode selector
+  state.controlsContainer.appendChild(createOscBlendModeSelector(prefix));
+
+  // Waveform selector
+  state.controlsContainer.appendChild(createOscWaveformSelector(prefix));
+
+  // Shape sliders
+  for (const [suffix, def] of Object.entries(OSC_SLIDER_DEFS)) {
+    const key = prefix + suffix;
+    state.controlsContainer.appendChild(createSlider(key, def));
+  }
+
+  // Angle LFO sub-section
+  state.controlsContainer.appendChild(createOscAngleLFOSection(prefix));
+
+  // Movement sub-section
+  const movementLabel = document.createElement('div');
+  movementLabel.className = 'subsection-label';
+  movementLabel.textContent = 'Movement';
+  state.controlsContainer.appendChild(movementLabel);
+
+  state.controlsContainer.appendChild(createOscMovementModeSelector(prefix));
+
+  for (const [suffix, def] of Object.entries(OSC_MOVEMENT_DEFS)) {
+    const key = prefix + suffix;
+    state.controlsContainer.appendChild(createSlider(key, def));
+  }
+
+  container.appendChild(state.controlsContainer);
+}
+
+// -------------------------------------------------------------------------
+// Oscillator enable toggle
+// -------------------------------------------------------------------------
+
+function createOscEnableToggle(prefix) {
+  const state = oscState[prefix];
+  const enableKey = prefix + 'Enabled';
+
+  state.enableBtn = document.createElement('button');
+  state.enableBtn.className = 'subsection-toggle-btn';
+  state.enableBtn.textContent = params[enableKey] ? 'Enabled' : 'Disabled';
+  if (params[enableKey]) state.enableBtn.classList.add('active');
+
+  state.enableBtn.addEventListener('click', () => {
+    params[enableKey] = params[enableKey] ? 0 : 1;
+    syncOscEnableToggle(prefix);
+    updateControlVisibility();
+  });
+
+  return state.enableBtn;
+}
+
+function syncOscEnableToggle(prefix) {
+  const state = oscState[prefix];
+  const enableKey = prefix + 'Enabled';
+  if (state.enableBtn) {
+    state.enableBtn.textContent = params[enableKey] ? 'Enabled' : 'Disabled';
+    state.enableBtn.classList.toggle('active', !!params[enableKey]);
+  }
+  if (state.controlsContainer) {
+    state.controlsContainer.classList.toggle('collapsed', !params[enableKey]);
+  }
+}
+
+// -------------------------------------------------------------------------
+// Oscillator blend mode selector
+// -------------------------------------------------------------------------
+
+function createOscBlendModeSelector(prefix) {
+  const row = document.createElement('div');
+  row.className = 'shape-type-row';
+
+  const state = oscState[prefix];
+  state.blendModeButtons = [];
+  const key = prefix + 'BlendMode';
+
+  for (let i = 0; i < OSC_BLEND_MODE_NAMES.length; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'shape-type-btn';
+    btn.textContent = OSC_BLEND_MODE_NAMES[i];
+    if (i === params[key]) btn.classList.add('active');
+
+    btn.addEventListener('click', () => {
+      params[key] = i;
+      syncOscBlendModeButtons(prefix);
+    });
+
+    state.blendModeButtons.push(btn);
+    row.appendChild(btn);
+  }
+
+  return row;
+}
+
+function syncOscBlendModeButtons(prefix) {
+  const state = oscState[prefix];
+  const key = prefix + 'BlendMode';
+  for (let i = 0; i < state.blendModeButtons.length; i++) {
+    state.blendModeButtons[i].classList.toggle('active', i === params[key]);
+  }
+}
+
+// -------------------------------------------------------------------------
+// Oscillator waveform selector
+// -------------------------------------------------------------------------
+
+function createOscWaveformSelector(prefix) {
+  const row = document.createElement('div');
+  row.className = 'shape-type-row';
+
+  const state = oscState[prefix];
+  state.waveformButtons = [];
+  const key = prefix + 'Waveform';
+
+  for (let i = 0; i < WAVEFORM_NAMES.length; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'shape-type-btn';
+    btn.textContent = WAVEFORM_NAMES[i];
+    if (i === params[key]) btn.classList.add('active');
+
+    btn.addEventListener('click', () => {
+      params[key] = i;
+      syncOscWaveformButtons(prefix);
+    });
+
+    state.waveformButtons.push(btn);
+    row.appendChild(btn);
+  }
+
+  return row;
+}
+
+function syncOscWaveformButtons(prefix) {
+  const state = oscState[prefix];
+  const key = prefix + 'Waveform';
+  for (let i = 0; i < state.waveformButtons.length; i++) {
+    state.waveformButtons[i].classList.toggle('active', i === params[key]);
+  }
+}
+
+// -------------------------------------------------------------------------
+// Oscillator angle LFO section
+// -------------------------------------------------------------------------
+
+function createOscAngleLFOSection(prefix) {
+  const state = oscState[prefix];
+  const wrapper = document.createElement('div');
+  wrapper.className = 'subsection';
+
+  const enableKey = prefix + 'AngleLFOEnabled';
+
+  // Toggle button
+  state.angleLFOToggleBtn = document.createElement('button');
+  state.angleLFOToggleBtn.className = 'subsection-toggle-btn';
+  state.angleLFOToggleBtn.textContent = params[enableKey] ? 'Angle LFO: ON' : 'Angle LFO: OFF';
+  if (params[enableKey]) state.angleLFOToggleBtn.classList.add('active');
+
+  state.angleLFOToggleBtn.addEventListener('click', () => {
+    params[enableKey] = params[enableKey] ? 0 : 1;
+    syncOscAngleLFOToggle(prefix);
+    updateControlVisibility();
+  });
+
+  wrapper.appendChild(state.angleLFOToggleBtn);
+
+  // Collapsible container for LFO controls
+  state.angleLFOControlsContainer = document.createElement('div');
+  state.angleLFOControlsContainer.className = 'collapsible-section';
+  if (!params[enableKey]) state.angleLFOControlsContainer.classList.add('collapsed');
+
+  // LFO waveform selector
+  state.angleLFOControlsContainer.appendChild(createOscAngleLFOWaveformSelector(prefix));
+
+  // LFO sliders
+  for (const [suffix, def] of Object.entries(OSC_ANGLE_LFO_DEFS)) {
+    const key = prefix + suffix;
+    state.angleLFOControlsContainer.appendChild(createSlider(key, def));
+  }
+
+  wrapper.appendChild(state.angleLFOControlsContainer);
+  return wrapper;
+}
+
+function syncOscAngleLFOToggle(prefix) {
+  const state = oscState[prefix];
+  const enableKey = prefix + 'AngleLFOEnabled';
+  if (state.angleLFOToggleBtn) {
+    state.angleLFOToggleBtn.textContent = params[enableKey] ? 'Angle LFO: ON' : 'Angle LFO: OFF';
+    state.angleLFOToggleBtn.classList.toggle('active', !!params[enableKey]);
+  }
+  if (state.angleLFOControlsContainer) {
+    state.angleLFOControlsContainer.classList.toggle('collapsed', !params[enableKey]);
+  }
+}
+
+// -------------------------------------------------------------------------
+// Oscillator angle LFO waveform selector
+// -------------------------------------------------------------------------
+
+function createOscAngleLFOWaveformSelector(prefix) {
+  const row = document.createElement('div');
+  row.className = 'shape-type-row';
+
+  const state = oscState[prefix];
+  state.angleLFOWaveformButtons = [];
+  const key = prefix + 'AngleLFOWaveform';
+
+  for (let i = 0; i < ANGLE_LFO_WAVEFORM_NAMES.length; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'shape-type-btn';
+    btn.textContent = ANGLE_LFO_WAVEFORM_NAMES[i];
+    if (i === params[key]) btn.classList.add('active');
+
+    btn.addEventListener('click', () => {
+      params[key] = i;
+      syncOscAngleLFOWaveformButtons(prefix);
+    });
+
+    state.angleLFOWaveformButtons.push(btn);
+    row.appendChild(btn);
+  }
+
+  return row;
+}
+
+function syncOscAngleLFOWaveformButtons(prefix) {
+  const state = oscState[prefix];
+  const key = prefix + 'AngleLFOWaveform';
+  for (let i = 0; i < state.angleLFOWaveformButtons.length; i++) {
+    state.angleLFOWaveformButtons[i].classList.toggle('active', i === params[key]);
+  }
+}
+
+// -------------------------------------------------------------------------
+// Oscillator movement mode selector
+// -------------------------------------------------------------------------
+
+function createOscMovementModeSelector(prefix) {
+  const row = document.createElement('div');
+  row.className = 'movement-mode-row';
+
+  const state = oscState[prefix];
+  state.movementModeButtons = [];
+  const key = prefix + 'MovementMode';
+
+  for (let i = 0; i < MOVEMENT_MODE_NAMES.length; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'movement-mode-btn';
+    btn.textContent = MOVEMENT_MODE_NAMES[i];
+    if (i === params[key]) btn.classList.add('active');
+
+    btn.addEventListener('click', () => {
+      params[key] = i;
+      syncOscMovementModeButtons(prefix);
+      updateControlVisibility();
+    });
+
+    state.movementModeButtons.push(btn);
+    row.appendChild(btn);
+  }
+
+  return row;
+}
+
+function syncOscMovementModeButtons(prefix) {
+  const state = oscState[prefix];
+  const key = prefix + 'MovementMode';
+  for (let i = 0; i < state.movementModeButtons.length; i++) {
+    state.movementModeButtons[i].classList.toggle('active', i === params[key]);
+  }
 }
 
 // -------------------------------------------------------------------------
@@ -515,13 +850,6 @@ function createInfoNotice() {
 // Preset card creation
 // -------------------------------------------------------------------------
 
-/**
- * Create a preset card element.
- * @param {object} preset - Preset data object with id, name, builtIn, params.
- * @param {string|null} thumbnailURL - Object URL for the thumbnail or null.
- * @param {boolean} isBuiltIn - Whether this is a factory preset.
- * @returns {HTMLElement}
- */
 function createPresetCard(preset, thumbnailURL, isBuiltIn) {
   const card = document.createElement('div');
   card.className = 'preset-card' + (isBuiltIn ? ' read-only' : '');
@@ -549,7 +877,6 @@ function createPresetCard(preset, thumbnailURL, isBuiltIn) {
 
   // Click to load preset
   card.addEventListener('click', (e) => {
-    // Don't load if clicking an action button, input, or confirm dialog
     if (e.target.closest('.hover-actions') || e.target.closest('.screenshot-actions') ||
         e.target.closest('.confirm-delete') || e.target.closest('.inline-edit')) {
       return;
@@ -562,31 +889,28 @@ function createPresetCard(preset, thumbnailURL, isBuiltIn) {
     const hoverActions = document.createElement('div');
     hoverActions.className = 'hover-actions';
 
-    // Rename
     const renameBtn = document.createElement('button');
     renameBtn.className = 'action-icon';
     renameBtn.title = 'Rename';
-    renameBtn.textContent = '\u270E'; // pencil
+    renameBtn.textContent = '\u270E';
     renameBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       startInlineRename(card, preset);
     });
 
-    // Re-capture screenshot
     const cameraBtn = document.createElement('button');
     cameraBtn.className = 'action-icon';
     cameraBtn.title = 'Re-capture screenshot';
-    cameraBtn.textContent = '\u25CE'; // bullseye / camera-like
+    cameraBtn.textContent = '\u25CE';
     cameraBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       handleRecapture(card, preset);
     });
 
-    // Delete preset
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'action-icon danger';
     deleteBtn.title = 'Delete preset';
-    deleteBtn.textContent = '\u2715'; // X mark
+    deleteBtn.textContent = '\u2715';
     deleteBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       showDeleteConfirm(card, preset);
@@ -597,7 +921,6 @@ function createPresetCard(preset, thumbnailURL, isBuiltIn) {
     hoverActions.appendChild(deleteBtn);
     card.appendChild(hoverActions);
 
-    // Screenshot-specific actions (bottom-right, only if screenshot exists)
     if (thumbnailURL) {
       const screenshotActions = document.createElement('div');
       screenshotActions.className = 'screenshot-actions';
@@ -655,7 +978,7 @@ function startInlineRename(card, preset) {
       input.blur();
     }
     if (e.key === 'Escape') {
-      input.value = preset.name; // revert
+      input.value = preset.name;
       input.blur();
     }
   });
@@ -666,7 +989,6 @@ function startInlineRename(card, preset) {
 // -------------------------------------------------------------------------
 
 function showDeleteConfirm(card, preset) {
-  // Remove any existing confirm dialog
   const existing = card.querySelector('.confirm-delete');
   if (existing) existing.remove();
 
@@ -686,7 +1008,6 @@ function showDeleteConfirm(card, preset) {
     e.stopPropagation();
     await deletePreset(preset.id);
     card.remove();
-    // Remove from cache
     _userPresets = _userPresets.filter(p => p.id !== preset.id);
   });
 
@@ -768,7 +1089,6 @@ async function handleSavePreset() {
       const card = createPresetCard(presetData, url, false);
       _userGrid.appendChild(card);
 
-      // Remove empty state if present
       const empty = _userGrid.parentNode.querySelector('.empty-state');
       if (empty) empty.remove();
     } catch (err) {
@@ -801,7 +1121,6 @@ async function handleImport() {
     try {
       const count = await importPresets(file);
       console.log(`Imported ${count} presets.`);
-      // Refresh the user presets grid
       await refreshUserPresetsGrid();
     } catch (err) {
       console.warn('Failed to import presets:', err);
@@ -846,7 +1165,6 @@ async function renderUserPresetsGrid() {
     return;
   }
 
-  // Remove empty state if present
   const existingEmpty = _userGrid.parentNode.querySelector('.empty-state');
   if (existingEmpty) existingEmpty.remove();
 
@@ -862,222 +1180,6 @@ async function renderUserPresetsGrid() {
     }
     const card = createPresetCard(preset, thumbnailURL, false);
     _userGrid.appendChild(card);
-  }
-}
-
-// -------------------------------------------------------------------------
-// Angle LFO sub-section factory
-// -------------------------------------------------------------------------
-
-function createAngleLFOSection() {
-  const wrapper = document.createElement('div');
-  wrapper.className = 'subsection';
-
-  // Toggle button.
-  angleLFOToggleBtn = document.createElement('button');
-  angleLFOToggleBtn.className = 'subsection-toggle-btn';
-  angleLFOToggleBtn.textContent = params.angleLFOEnabled ? 'Angle LFO: ON' : 'Angle LFO: OFF';
-  if (params.angleLFOEnabled) angleLFOToggleBtn.classList.add('active');
-
-  angleLFOToggleBtn.addEventListener('click', () => {
-    params.angleLFOEnabled = params.angleLFOEnabled ? 0 : 1;
-    syncAngleLFOToggle();
-    updateControlVisibility();
-  });
-
-  wrapper.appendChild(angleLFOToggleBtn);
-
-  // Collapsible container for LFO controls.
-  angleLFOControlsContainer = document.createElement('div');
-  angleLFOControlsContainer.className = 'collapsible-section';
-  if (!params.angleLFOEnabled) angleLFOControlsContainer.classList.add('collapsed');
-
-  // LFO waveform selector.
-  angleLFOControlsContainer.appendChild(createAngleLFOWaveformSelector());
-
-  // LFO sliders.
-  for (const key of ['angleLFORate', 'angleLFODepth']) {
-    const def = CONTROL_DEFS[key];
-    angleLFOControlsContainer.appendChild(createSlider(key, def));
-  }
-
-  wrapper.appendChild(angleLFOControlsContainer);
-  return wrapper;
-}
-
-function syncAngleLFOToggle() {
-  if (angleLFOToggleBtn) {
-    angleLFOToggleBtn.textContent = params.angleLFOEnabled ? 'Angle LFO: ON' : 'Angle LFO: OFF';
-    angleLFOToggleBtn.classList.toggle('active', !!params.angleLFOEnabled);
-  }
-  if (angleLFOControlsContainer) {
-    angleLFOControlsContainer.classList.toggle('collapsed', !params.angleLFOEnabled);
-  }
-}
-
-// -------------------------------------------------------------------------
-// Angle LFO waveform selector
-// -------------------------------------------------------------------------
-
-function createAngleLFOWaveformSelector() {
-  const row = document.createElement('div');
-  row.className = 'shape-type-row';
-
-  angleLFOWaveformButtons = [];
-
-  for (let i = 0; i < ANGLE_LFO_WAVEFORM_NAMES.length; i++) {
-    const btn = document.createElement('button');
-    btn.className = 'shape-type-btn';
-    btn.textContent = ANGLE_LFO_WAVEFORM_NAMES[i];
-    if (i === params.angleLFOWaveform) btn.classList.add('active');
-
-    btn.addEventListener('click', () => {
-      params.angleLFOWaveform = i;
-      syncAngleLFOWaveformButtons();
-    });
-
-    angleLFOWaveformButtons.push(btn);
-    row.appendChild(btn);
-  }
-
-  return row;
-}
-
-function syncAngleLFOWaveformButtons() {
-  for (let i = 0; i < angleLFOWaveformButtons.length; i++) {
-    angleLFOWaveformButtons[i].classList.toggle('active', i === params.angleLFOWaveform);
-  }
-}
-
-// -------------------------------------------------------------------------
-// Osc2 enable toggle factory
-// -------------------------------------------------------------------------
-
-function createOsc2EnableToggle() {
-  osc2EnableBtn = document.createElement('button');
-  osc2EnableBtn.className = 'subsection-toggle-btn';
-  osc2EnableBtn.textContent = params.osc2Enabled ? 'Enabled' : 'Disabled';
-  if (params.osc2Enabled) osc2EnableBtn.classList.add('active');
-
-  osc2EnableBtn.addEventListener('click', () => {
-    params.osc2Enabled = params.osc2Enabled ? 0 : 1;
-    syncOsc2EnableToggle();
-    updateControlVisibility();
-  });
-
-  return osc2EnableBtn;
-}
-
-function syncOsc2EnableToggle() {
-  if (osc2EnableBtn) {
-    osc2EnableBtn.textContent = params.osc2Enabled ? 'Enabled' : 'Disabled';
-    osc2EnableBtn.classList.toggle('active', !!params.osc2Enabled);
-  }
-  if (osc2ControlsContainer) {
-    osc2ControlsContainer.classList.toggle('collapsed', !params.osc2Enabled);
-  }
-}
-
-// -------------------------------------------------------------------------
-// Osc2 blend mode selector factory
-// -------------------------------------------------------------------------
-
-function createOsc2BlendModeSelector() {
-  const row = document.createElement('div');
-  row.className = 'shape-type-row';
-
-  osc2BlendModeButtons = [];
-
-  for (let i = 0; i < OSC2_BLEND_MODE_NAMES.length; i++) {
-    const btn = document.createElement('button');
-    btn.className = 'shape-type-btn';
-    btn.textContent = OSC2_BLEND_MODE_NAMES[i];
-    if (i === params.osc2BlendMode) btn.classList.add('active');
-
-    btn.addEventListener('click', () => {
-      params.osc2BlendMode = i;
-      syncOsc2BlendModeButtons();
-    });
-
-    osc2BlendModeButtons.push(btn);
-    row.appendChild(btn);
-  }
-
-  return row;
-}
-
-function syncOsc2BlendModeButtons() {
-  for (let i = 0; i < osc2BlendModeButtons.length; i++) {
-    osc2BlendModeButtons[i].classList.toggle('active', i === params.osc2BlendMode);
-  }
-}
-
-// -------------------------------------------------------------------------
-// Osc2 waveform selector factory
-// -------------------------------------------------------------------------
-
-function createOsc2WaveformSelector() {
-  const row = document.createElement('div');
-  row.className = 'shape-type-row';
-
-  osc2WaveformButtons = [];
-
-  for (let i = 0; i < WAVEFORM_NAMES.length; i++) {
-    const btn = document.createElement('button');
-    btn.className = 'shape-type-btn';
-    btn.textContent = WAVEFORM_NAMES[i];
-    if (i === params.osc2Waveform) btn.classList.add('active');
-
-    btn.addEventListener('click', () => {
-      params.osc2Waveform = i;
-      syncOsc2WaveformButtons();
-    });
-
-    osc2WaveformButtons.push(btn);
-    row.appendChild(btn);
-  }
-
-  return row;
-}
-
-function syncOsc2WaveformButtons() {
-  for (let i = 0; i < osc2WaveformButtons.length; i++) {
-    osc2WaveformButtons[i].classList.toggle('active', i === params.osc2Waveform);
-  }
-}
-
-// -------------------------------------------------------------------------
-// Osc2 movement mode selector factory
-// -------------------------------------------------------------------------
-
-function createOsc2MovementModeSelector() {
-  const row = document.createElement('div');
-  row.className = 'movement-mode-row';
-
-  osc2MovementModeButtons = [];
-
-  for (let i = 0; i < MOVEMENT_MODE_NAMES.length; i++) {
-    const btn = document.createElement('button');
-    btn.className = 'movement-mode-btn';
-    btn.textContent = MOVEMENT_MODE_NAMES[i];
-    if (i === params.osc2MovementMode) btn.classList.add('active');
-
-    btn.addEventListener('click', () => {
-      params.osc2MovementMode = i;
-      syncOsc2MovementModeButtons();
-      updateControlVisibility();
-    });
-
-    osc2MovementModeButtons.push(btn);
-    row.appendChild(btn);
-  }
-
-  return row;
-}
-
-function syncOsc2MovementModeButtons() {
-  for (let i = 0; i < osc2MovementModeButtons.length; i++) {
-    osc2MovementModeButtons[i].classList.toggle('active', i === params.osc2MovementMode);
   }
 }
 
@@ -1106,89 +1208,18 @@ function createSlider(key, def) {
   input.step = def.step;
   input.value = params[key];
 
-  // Real-time update on drag.
   input.addEventListener('input', () => {
     const val = parseFloat(input.value);
     params[key] = val;
     valueEl.textContent = formatValue(val, def.step);
   });
 
-  // Store reference for external sync (preset/reset).
   sliderElements[key] = { input, valueEl, def };
 
   row.appendChild(labelEl);
   row.appendChild(input);
   row.appendChild(valueEl);
   return row;
-}
-
-// -------------------------------------------------------------------------
-// Waveform selector factory
-// -------------------------------------------------------------------------
-
-function createWaveformSelector() {
-  const row = document.createElement('div');
-  row.className = 'shape-type-row';
-
-  waveformButtons = [];
-
-  for (let i = 0; i < WAVEFORM_NAMES.length; i++) {
-    const btn = document.createElement('button');
-    btn.className = 'shape-type-btn';
-    btn.textContent = WAVEFORM_NAMES[i];
-    if (i === params.shapeWaveform) btn.classList.add('active');
-
-    btn.addEventListener('click', () => {
-      params.shapeWaveform = i;
-      syncWaveformButtons();
-    });
-
-    waveformButtons.push(btn);
-    row.appendChild(btn);
-  }
-
-  return row;
-}
-
-function syncWaveformButtons() {
-  for (let i = 0; i < waveformButtons.length; i++) {
-    waveformButtons[i].classList.toggle('active', i === params.shapeWaveform);
-  }
-}
-
-// -------------------------------------------------------------------------
-// Movement mode selector factory
-// -------------------------------------------------------------------------
-
-function createMovementModeSelector() {
-  const row = document.createElement('div');
-  row.className = 'movement-mode-row';
-
-  movementModeButtons = [];
-
-  for (let i = 0; i < MOVEMENT_MODE_NAMES.length; i++) {
-    const btn = document.createElement('button');
-    btn.className = 'movement-mode-btn';
-    btn.textContent = MOVEMENT_MODE_NAMES[i];
-    if (i === params.movementMode) btn.classList.add('active');
-
-    btn.addEventListener('click', () => {
-      params.movementMode = i;
-      syncMovementModeButtons();
-      updateControlVisibility();
-    });
-
-    movementModeButtons.push(btn);
-    row.appendChild(btn);
-  }
-
-  return row;
-}
-
-function syncMovementModeButtons() {
-  for (let i = 0; i < movementModeButtons.length; i++) {
-    movementModeButtons[i].classList.toggle('active', i === params.movementMode);
-  }
 }
 
 // -------------------------------------------------------------------------
@@ -1273,7 +1304,7 @@ function createMirrorTargetSelector() {
 
   for (let i = 0; i < MIRROR_TARGET_NAMES.length; i++) {
     const btn = document.createElement('button');
-    btn.className = 'mirror-mode-btn';  // reuse mirror-mode-btn styling
+    btn.className = 'mirror-mode-btn';
     btn.textContent = MIRROR_TARGET_NAMES[i];
     if (i === params.mirrorTarget) btn.classList.add('active');
 
@@ -1296,7 +1327,7 @@ function syncMirrorTargetButtons() {
 }
 
 // -------------------------------------------------------------------------
-// Blend mode selector factory
+// Feedback blend mode selector factory
 // -------------------------------------------------------------------------
 
 function createBlendModeSelector() {
@@ -1339,20 +1370,20 @@ function formatValue(val, step) {
 // Control visibility -- show/hide sliders based on current mode selections.
 // -------------------------------------------------------------------------
 
-/** Visibility rules per movement mode: which param keys are visible. */
+/** Movement visibility rules per mode (suffix keys). */
 const MOVEMENT_VISIBILITY = {
-  0: ['movementSpeed', 'movementAmplitude'],                                               // Sine
-  1: ['movementSpeed', 'movementAmplitude', 'movementPhase', 'movementLissajousRatio'],    // Lissajous
-  2: ['movementSpeed', 'movementAmplitude', 'movementSpiralSpeed'],                        // Spiral
-  3: ['movementScrollAngle', 'movementScrollSpeed'],                                       // Scroll
-  4: ['movementBounceSpeed', 'movementAmplitude'],                                         // Bounce
-  5: [],                                                                                   // Fixed
+  0: ['MovementSpeed', 'MovementAmplitude'],                                                   // Sine
+  1: ['MovementSpeed', 'MovementAmplitude', 'MovementPhase', 'MovementLissajousRatio'],        // Lissajous
+  2: ['MovementSpeed', 'MovementAmplitude', 'MovementSpiralSpeed'],                            // Spiral
+  3: ['MovementScrollAngle', 'MovementScrollSpeed'],                                           // Scroll
+  4: ['MovementBounceSpeed', 'MovementAmplitude'],                                             // Bounce
+  5: [],                                                                                       // Fixed
 };
 
-/** All movement param keys (for hiding). */
-const ALL_MOVEMENT_PARAMS = [
-  'movementSpeed', 'movementAmplitude', 'movementPhase', 'movementLissajousRatio',
-  'movementSpiralSpeed', 'movementScrollAngle', 'movementScrollSpeed', 'movementBounceSpeed',
+/** All movement suffix keys (for hiding). */
+const ALL_MOVEMENT_SUFFIXES = [
+  'MovementSpeed', 'MovementAmplitude', 'MovementPhase', 'MovementLissajousRatio',
+  'MovementSpiralSpeed', 'MovementScrollAngle', 'MovementScrollSpeed', 'MovementBounceSpeed',
 ];
 
 /** Color mode visibility: which param keys are visible per color mode. */
@@ -1367,21 +1398,6 @@ const COLOR_MODE_VISIBILITY = {
 /** Color params that are conditionally visible. */
 const CONDITIONAL_COLOR_PARAMS = [
   'colorPosterizeLevels', 'colorGradientHue1', 'colorGradientHue2', 'colorGradientHue3',
-];
-
-/** Osc2 movement visibility rules. */
-const OSC2_MOVEMENT_VISIBILITY = {
-  0: ['osc2MovementSpeed', 'osc2MovementAmplitude'],                         // Sine
-  1: ['osc2MovementSpeed', 'osc2MovementAmplitude', 'osc2MovementPhase'],    // Lissajous
-  2: ['osc2MovementSpeed', 'osc2MovementAmplitude'],                         // Spiral
-  3: ['osc2MovementSpeed'],                                                  // Scroll
-  4: ['osc2MovementSpeed', 'osc2MovementAmplitude'],                         // Bounce
-  5: [],                                                                     // Fixed
-};
-
-/** All Osc2 movement param keys (for hiding). */
-const ALL_OSC2_MOVEMENT_PARAMS = [
-  'osc2MovementSpeed', 'osc2MovementAmplitude', 'osc2MovementPhase',
 ];
 
 /**
@@ -1402,12 +1418,6 @@ function setSliderVisible(paramKey, visible) {
  * Update the visibility of all conditionally-shown slider rows.
  */
 function updateControlVisibility() {
-  // -- Movement controls --
-  const visibleMovement = MOVEMENT_VISIBILITY[params.movementMode] || [];
-  for (const key of ALL_MOVEMENT_PARAMS) {
-    setSliderVisible(key, visibleMovement.includes(key));
-  }
-
   // -- Kaleidoscope angle --
   const kalVisible = params.mirrorMode >= 4 && params.mirrorMode <= 6;
   setSliderVisible('kaleidoscopeAngle', kalVisible);
@@ -1418,15 +1428,21 @@ function updateControlVisibility() {
     setSliderVisible(key, visibleColor.includes(key));
   }
 
-  // -- Osc2 controls --
-  syncOsc2EnableToggle();
-  const visibleOsc2Movement = OSC2_MOVEMENT_VISIBILITY[params.osc2MovementMode] || [];
-  for (const key of ALL_OSC2_MOVEMENT_PARAMS) {
-    setSliderVisible(key, visibleOsc2Movement.includes(key));
-  }
+  // -- Per-oscillator controls --
+  for (const prefix of ['osc1', 'osc2']) {
+    // Enable toggle
+    syncOscEnableToggle(prefix);
 
-  // -- Angle LFO controls --
-  syncAngleLFOToggle();
+    // Movement visibility
+    const movementMode = params[prefix + 'MovementMode'];
+    const visibleSuffixes = MOVEMENT_VISIBILITY[movementMode] || [];
+    for (const suffix of ALL_MOVEMENT_SUFFIXES) {
+      setSliderVisible(prefix + suffix, visibleSuffixes.includes(suffix));
+    }
+
+    // Angle LFO
+    syncOscAngleLFOToggle(prefix);
+  }
 }
 
 // -------------------------------------------------------------------------
@@ -1438,18 +1454,23 @@ function syncSliders() {
     input.value = params[key];
     valueEl.textContent = formatValue(params[key], def.step);
   }
-  syncWaveformButtons();
-  syncMovementModeButtons();
+
+  // Global buttons
   syncColorModeButtons();
   syncMirrorModeButtons();
   syncMirrorTargetButtons();
   syncBlendModeButtons();
-  syncOsc2WaveformButtons();
-  syncOsc2BlendModeButtons();
-  syncOsc2MovementModeButtons();
-  syncOsc2EnableToggle();
-  syncAngleLFOToggle();
-  syncAngleLFOWaveformButtons();
+
+  // Per-oscillator buttons
+  for (const prefix of ['osc1', 'osc2']) {
+    syncOscWaveformButtons(prefix);
+    syncOscBlendModeButtons(prefix);
+    syncOscMovementModeButtons(prefix);
+    syncOscEnableToggle(prefix);
+    syncOscAngleLFOToggle(prefix);
+    syncOscAngleLFOWaveformButtons(prefix);
+  }
+
   updateControlVisibility();
 }
 
@@ -1457,10 +1478,6 @@ function syncSliders() {
 // Actions
 // -------------------------------------------------------------------------
 
-/**
- * Apply preset params to the live params object and sync the UI.
- * Used by both built-in and user presets.
- */
 function applyPresetData(presetParams) {
   if (!presetParams) return;
   for (const [key, val] of Object.entries(presetParams)) {
@@ -1482,25 +1499,17 @@ function randomizeParams() {
     const rMin = range.min;
     const rMax = range.max;
 
-    // Integer selectors -- not sliders, handle specially.
-    if (key === 'shapeWaveform' || key === 'colorMode' || key === 'movementMode'
-        || key === 'mirrorMode' || key === 'mirrorTarget' || key === 'feedbackBlendMode'
-        || key === 'shapeFractalAmount' || key === 'angleLFOEnabled' || key === 'angleLFOWaveform'
-        || key === 'osc2Enabled' || key === 'osc2Waveform' || key === 'osc2BlendMode'
-        || key === 'osc2MovementMode' || key === 'osc2FractalAmount') {
-      params[key] = Math.floor(Math.random() * (rMax - rMin + 1)) + rMin;
-      continue;
-    }
-    if (key === 'colorPosterizeLevels') {
+    // Integer selectors
+    if (INTEGER_RANDOM_KEYS.has(key)) {
       params[key] = Math.floor(Math.random() * (rMax - rMin + 1)) + rMin;
       continue;
     }
 
-    // Snap to the step grid defined for the control.
-    const def = CONTROL_DEFS[key];
-    if (def) {
+    // Snap to the step grid
+    const el = sliderElements[key];
+    if (el) {
       const raw = rMin + Math.random() * (rMax - rMin);
-      params[key] = snapToStep(raw, def.step, def.min, def.max);
+      params[key] = snapToStep(raw, el.def.step, el.def.min, el.def.max);
     }
   }
   syncSliders();
@@ -1560,7 +1569,6 @@ function setupEvents() {
 
   // Keyboard shortcuts.
   document.addEventListener('keydown', (e) => {
-    // Ignore if focus is on an input element (let sliders and inline edits work normally).
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
     switch (e.key) {

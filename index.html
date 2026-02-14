@@ -413,7 +413,7 @@
 
     /* ---- Collapsible sections ---- */
     .collapsible-section {
-      max-height: 600px;
+      max-height: 1200px;
       opacity: 1;
       overflow: hidden;
       transition: max-height 0.35s ease, opacity 0.25s ease;
@@ -422,6 +422,19 @@
     .collapsible-section.collapsed {
       max-height: 0;
       opacity: 0;
+    }
+
+    /* ---- Subsection labels ---- */
+    .subsection-label {
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ui-text-dim);
+      margin-top: 8px;
+      margin-bottom: 6px;
+      padding-bottom: 2px;
+      border-bottom: 1px solid var(--ui-border);
     }
 
     /* ---- Mirror target row ---- */

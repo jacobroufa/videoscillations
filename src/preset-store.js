@@ -7,6 +7,8 @@
  *   - screenshots -- screenshot Blob data keyed by preset id
  */
 
+import { CURRENT_VERSION, migratePreset, needsMigration } from './migrations/index.js';
+
 const DB_NAME = 'hypnewcade-presets';
 const DB_VERSION = 1;
 
@@ -80,6 +82,7 @@ export async function savePreset(presetData, screenshotBlob = null) {
   const preset = {
     ...presetData,
     id,
+    version: CURRENT_VERSION,
     builtIn: false,
     createdAt: presetData.createdAt || new Date().toISOString(),
   };
@@ -177,6 +180,43 @@ export async function renamePreset(id, newName) {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
+}
+
+// -------------------------------------------------------------------------
+// Migration
+// -------------------------------------------------------------------------
+
+/**
+ * Migrate all user presets in IndexedDB to the current schema version.
+ * Loads every preset, checks if it needs migration, applies migrations,
+ * and saves migrated presets back.
+ * @returns {Promise<number>} Count of migrated presets.
+ */
+export async function migrateUserPresets() {
+  const presets = await loadAllPresets();
+  let migratedCount = 0;
+
+  const db = await openDB();
+
+  for (const preset of presets) {
+    if (!needsMigration(preset)) continue;
+
+    const migrated = migratePreset(preset);
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction('presets', 'readwrite');
+      tx.objectStore('presets').put(migrated);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+
+    migratedCount++;
+  }
+
+  if (migratedCount > 0) {
+    console.log(`Migrated ${migratedCount} user preset(s) to version ${CURRENT_VERSION}.`);
+  }
+
+  return migratedCount;
 }
 
 // -------------------------------------------------------------------------

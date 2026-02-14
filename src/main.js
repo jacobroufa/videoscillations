@@ -10,6 +10,7 @@ import { PingPongBuffers } from './framebuffers.js';
 import { Renderer } from './renderer.js';
 import { params } from './params.js';
 import { initUI } from './ui.js';
+import { migrateUserPresets } from './preset-store.js';
 
 // ---------------------------------------------------------------------------
 // Shader sources -- loaded as strings via fetch so they stay in .glsl files.
@@ -38,6 +39,9 @@ function getUniformLocations(gl, program, names) {
 // ---------------------------------------------------------------------------
 
 async function main() {
+  // Migrate any user presets saved under an older schema version.
+  await migrateUserPresets();
+
   // Canvas and WebGL context.
   const canvas = document.getElementById('c');
   const gl = initGL(canvas);
@@ -69,16 +73,18 @@ async function main() {
     ]),
     shape: getUniformLocations(gl, programs.shape, [
       'uResolution',
-      'uShapeWaveform', 'uShapeFrequency', 'uShapeAngle',
-      'uShapeThickness', 'uShapeSoftness', 'uShapePhaseOffset',
-      'uShapePhaseOffsetY',
-      'uShapeFractalAmount', 'uShapeFractalAngle',
-      'uShapeHue', 'uShapeColorSat',
-      'uPolarizationAngle',
+      'uOsc1Enabled', 'uOsc1BlendMode',
+      'uOsc1Waveform', 'uOsc1Frequency', 'uOsc1Angle',
+      'uOsc1Thickness', 'uOsc1Softness', 'uOsc1PhaseOffset',
+      'uOsc1PhaseOffsetY',
+      'uOsc1FractalAmount', 'uOsc1FractalAngle',
+      'uOsc1Hue', 'uOsc1ColorSat',
+      'uOsc1PolarizationAngle',
       'uOsc2Enabled', 'uOsc2Waveform', 'uOsc2Frequency', 'uOsc2Angle',
       'uOsc2Thickness', 'uOsc2Softness', 'uOsc2PhaseOffset', 'uOsc2PhaseOffsetY',
       'uOsc2FractalAmount', 'uOsc2FractalAngle',
       'uOsc2Hue', 'uOsc2ColorSat', 'uOsc2BlendMode',
+      'uOsc2PolarizationAngle',
       'uMirrorMode', 'uKaleidoscopeAngle', 'uMirrorTarget',
     ]),
     display: getUniformLocations(gl, programs.display, [

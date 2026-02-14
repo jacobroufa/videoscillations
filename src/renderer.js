@@ -12,7 +12,7 @@
  * This avoids the read-write conflict that would occur if we tried to
  * sample and render to the same FBO in a single shader pass.
  *
- * Movement modes drive the shapePhaseOffset for fullscreen waveform scrolling:
+ * Movement modes drive the phaseOffset for fullscreen waveform scrolling:
  *   0 = Sine oscillation of phase
  *   1 = Lissajous (sine with phase offset)
  *   2 = Spiral (phase + angle animation for radial waveforms)
@@ -53,9 +53,13 @@ export class Renderer {
     this._osc2BouncePhase = 0.0;
     this._osc2BounceDir = 1.0;
 
-    // Angle LFO internal state.
-    this._angleLFOLastSH = 0.0;       // Random S&H: last held value
-    this._angleLFOLastSHTime = 0.0;   // Random S&H: time of last sample
+    // Angle LFO internal state (Osc1).
+    this._osc1AngleLFOLastSH = 0.0;       // Random S&H: last held value
+    this._osc1AngleLFOLastSHTime = 0.0;   // Random S&H: time of last sample
+
+    // Angle LFO internal state (Osc2).
+    this._osc2AngleLFOLastSH = 0.0;
+    this._osc2AngleLFOLastSHTime = 0.0;
 
     // Screenshot capture callback (set via requestScreenshot).
     this._screenshotCallback = null;
@@ -79,9 +83,13 @@ export class Renderer {
     this._osc2BouncePhase = 0.0;
     this._osc2BounceDir = 1.0;
 
-    // Reset angle LFO state.
-    this._angleLFOLastSH = 0.0;
-    this._angleLFOLastSHTime = 0.0;
+    // Reset angle LFO state (Osc1).
+    this._osc1AngleLFOLastSH = 0.0;
+    this._osc1AngleLFOLastSHTime = 0.0;
+
+    // Reset angle LFO state (Osc2).
+    this._osc2AngleLFOLastSH = 0.0;
+    this._osc2AngleLFOLastSHTime = 0.0;
 
     this._tick = this._tick.bind(this);
     this._rafId = requestAnimationFrame(this._tick);
@@ -168,18 +176,17 @@ export class Renderer {
   }
 
   // ------------------------------------------------------------------
-  // Compute angle LFO modulation value.
+  // Compute angle LFO modulation value for a given oscillator.
+  // lfoState: { lastSH, lastSHTime } -- mutable S&H state object
   // ------------------------------------------------------------------
-  _computeAngleLFO(elapsed, p) {
-    if (!p.angleLFOEnabled) return 0.0;
+  _computeAngleLFO(elapsed, enabled, waveform, rate, depth, lfoState) {
+    if (!enabled) return 0.0;
 
-    const rate = p.angleLFORate;
-    const depth = p.angleLFODepth;
     const phase = elapsed * rate * TAU;
 
     let lfoValue = 0.0;
 
-    switch (p.angleLFOWaveform) {
+    switch (waveform) {
       case 0:
         // Sine
         lfoValue = Math.sin(phase);
@@ -200,12 +207,12 @@ export class Renderer {
         // Random Sample & Hold: hold a random value for each LFO period
         const period = 1.0 / Math.max(rate, 0.001);
         const currentPeriod = Math.floor(elapsed / period);
-        const lastPeriod = Math.floor(this._angleLFOLastSHTime / period);
-        if (currentPeriod !== lastPeriod || this._angleLFOLastSHTime === 0) {
-          this._angleLFOLastSH = Math.random() * 2.0 - 1.0;
-          this._angleLFOLastSHTime = elapsed;
+        const lastPeriod = Math.floor(lfoState.lastSHTime / period);
+        if (currentPeriod !== lastPeriod || lfoState.lastSHTime === 0) {
+          lfoState.lastSH = Math.random() * 2.0 - 1.0;
+          lfoState.lastSHTime = elapsed;
         }
-        lfoValue = this._angleLFOLastSH;
+        lfoValue = lfoState.lastSH;
         break;
       }
       default:
@@ -231,39 +238,51 @@ export class Renderer {
     // ------------------------------------------------------------------
     // Compute Osc1 phase offset from movement mode.
     // ------------------------------------------------------------------
-    const osc1Bounce = { phase: this._bouncePhase, dir: this._bounceDir };
-    const osc1Movement = this._computeMovement(p.movementMode, elapsed, dt,
-      p.shapePhaseOffset, p.shapeAngle, {
-        amplitude: p.movementAmplitude,
-        speed: p.movementSpeed,
-        lissajousRatio: p.movementLissajousRatio,
-        phase: p.movementPhase,
-        spiralSpeed: p.movementSpiralSpeed,
-        scrollAngle: p.movementScrollAngle,
-        scrollSpeed: p.movementScrollSpeed,
-        bounceSpeed: p.movementBounceSpeed,
-        bounceState: osc1Bounce,
-      });
+    let phaseOffsetX = p.osc1PhaseOffset;
+    let phaseOffsetY = 0.0;
+    let osc1AngleOffset = p.osc1Angle;
 
-    // Persist Osc1 bounce state (mutated by reference in _computeMovement).
-    this._bouncePhase = osc1Bounce.phase;
-    this._bounceDir = osc1Bounce.dir;
+    if (p.osc1Enabled) {
+      const osc1Bounce = { phase: this._bouncePhase, dir: this._bounceDir };
+      const osc1Movement = this._computeMovement(p.osc1MovementMode, elapsed, dt,
+        p.osc1PhaseOffset, p.osc1Angle, {
+          amplitude: p.osc1MovementAmplitude,
+          speed: p.osc1MovementSpeed,
+          lissajousRatio: p.osc1MovementLissajousRatio,
+          phase: p.osc1MovementPhase,
+          spiralSpeed: p.osc1MovementSpiralSpeed,
+          scrollAngle: p.osc1MovementScrollAngle,
+          scrollSpeed: p.osc1MovementScrollSpeed,
+          bounceSpeed: p.osc1MovementBounceSpeed,
+          bounceState: osc1Bounce,
+        });
 
-    const phaseOffsetX = osc1Movement.phaseX;
-    const phaseOffsetY = osc1Movement.phaseY;
-    let angleOffset = osc1Movement.angleOffset;
+      // Persist Osc1 bounce state (mutated by reference in _computeMovement).
+      this._bouncePhase = osc1Bounce.phase;
+      this._bounceDir = osc1Bounce.dir;
+
+      phaseOffsetX = osc1Movement.phaseX;
+      phaseOffsetY = osc1Movement.phaseY;
+      osc1AngleOffset = osc1Movement.angleOffset;
+
+      // Compute Osc1 angle LFO modulation.
+      const osc1LFOState = {
+        lastSH: this._osc1AngleLFOLastSH,
+        lastSHTime: this._osc1AngleLFOLastSHTime,
+      };
+      osc1AngleOffset += this._computeAngleLFO(elapsed,
+        p.osc1AngleLFOEnabled, p.osc1AngleLFOWaveform,
+        p.osc1AngleLFORate, p.osc1AngleLFODepth, osc1LFOState);
+      this._osc1AngleLFOLastSH = osc1LFOState.lastSH;
+      this._osc1AngleLFOLastSHTime = osc1LFOState.lastSHTime;
+    }
 
     // ------------------------------------------------------------------
-    // Compute angle LFO modulation.
+    // Compute Osc1 polarization auto-rotation.
     // ------------------------------------------------------------------
-    angleOffset += this._computeAngleLFO(elapsed, p);
-
-    // ------------------------------------------------------------------
-    // Compute polarization auto-rotation.
-    // ------------------------------------------------------------------
-    let polarizationAngle = p.polarizationAngle;
-    if (p.polarizationSpeed !== 0.0) {
-      polarizationAngle += elapsed * p.polarizationSpeed;
+    let osc1PolarizationAngle = p.osc1PolarizationAngle;
+    if (p.osc1PolarizationSpeed !== 0.0) {
+      osc1PolarizationAngle += elapsed * p.osc1PolarizationSpeed;
     }
 
     // ------------------------------------------------------------------
@@ -279,12 +298,12 @@ export class Renderer {
         p.osc2PhaseOffset, p.osc2Angle, {
           amplitude: p.osc2MovementAmplitude,
           speed: p.osc2MovementSpeed,
-          lissajousRatio: 0.5,
+          lissajousRatio: p.osc2MovementLissajousRatio,
           phase: p.osc2MovementPhase,
-          spiralSpeed: 1.0,
-          scrollAngle: 0.0,
-          scrollSpeed: p.osc2MovementSpeed,
-          bounceSpeed: p.osc2MovementSpeed,
+          spiralSpeed: p.osc2MovementSpiralSpeed,
+          scrollAngle: p.osc2MovementScrollAngle,
+          scrollSpeed: p.osc2MovementScrollSpeed,
+          bounceSpeed: p.osc2MovementBounceSpeed,
           bounceState: osc2Bounce,
         });
 
@@ -295,6 +314,25 @@ export class Renderer {
       osc2PhaseX = osc2Movement.phaseX;
       osc2PhaseY = osc2Movement.phaseY;
       osc2Angle = osc2Movement.angleOffset;
+
+      // Compute Osc2 angle LFO modulation.
+      const osc2LFOState = {
+        lastSH: this._osc2AngleLFOLastSH,
+        lastSHTime: this._osc2AngleLFOLastSHTime,
+      };
+      osc2Angle += this._computeAngleLFO(elapsed,
+        p.osc2AngleLFOEnabled, p.osc2AngleLFOWaveform,
+        p.osc2AngleLFORate, p.osc2AngleLFODepth, osc2LFOState);
+      this._osc2AngleLFOLastSH = osc2LFOState.lastSH;
+      this._osc2AngleLFOLastSHTime = osc2LFOState.lastSHTime;
+    }
+
+    // ------------------------------------------------------------------
+    // Compute Osc2 polarization auto-rotation.
+    // ------------------------------------------------------------------
+    let osc2PolarizationAngle = p.osc2PolarizationAngle;
+    if (p.osc2PolarizationSpeed !== 0.0) {
+      osc2PolarizationAngle += elapsed * p.osc2PolarizationSpeed;
     }
 
     // ------------------------------------------------------------------
@@ -341,18 +379,20 @@ export class Renderer {
 
     const sh = this.uniforms.shape;
     gl.uniform2f(sh.uResolution, width, height);
-    gl.uniform1i(sh.uShapeWaveform, p.shapeWaveform);
-    gl.uniform1f(sh.uShapeFrequency, p.shapeFrequency);
-    gl.uniform1f(sh.uShapeAngle, angleOffset);
-    gl.uniform1f(sh.uShapeThickness, p.shapeThickness);
-    gl.uniform1f(sh.uShapeSoftness, p.shapeSoftness);
-    gl.uniform1f(sh.uShapePhaseOffset, phaseOffsetX);
-    gl.uniform1f(sh.uShapePhaseOffsetY, phaseOffsetY);
-    gl.uniform1i(sh.uShapeFractalAmount, p.shapeFractalAmount);
-    gl.uniform1f(sh.uShapeFractalAngle, p.shapeFractalAngle);
-    gl.uniform1f(sh.uShapeHue, p.shapeHue);
-    gl.uniform1f(sh.uShapeColorSat, p.shapeColorSat);
-    gl.uniform1f(sh.uPolarizationAngle, polarizationAngle);
+    gl.uniform1i(sh.uOsc1Enabled, p.osc1Enabled);
+    gl.uniform1i(sh.uOsc1BlendMode, p.osc1BlendMode);
+    gl.uniform1i(sh.uOsc1Waveform, p.osc1Waveform);
+    gl.uniform1f(sh.uOsc1Frequency, p.osc1Frequency);
+    gl.uniform1f(sh.uOsc1Angle, osc1AngleOffset);
+    gl.uniform1f(sh.uOsc1Thickness, p.osc1Thickness);
+    gl.uniform1f(sh.uOsc1Softness, p.osc1Softness);
+    gl.uniform1f(sh.uOsc1PhaseOffset, phaseOffsetX);
+    gl.uniform1f(sh.uOsc1PhaseOffsetY, phaseOffsetY);
+    gl.uniform1i(sh.uOsc1FractalAmount, p.osc1FractalAmount);
+    gl.uniform1f(sh.uOsc1FractalAngle, p.osc1FractalAngle);
+    gl.uniform1f(sh.uOsc1Hue, p.osc1Hue);
+    gl.uniform1f(sh.uOsc1ColorSat, p.osc1ColorSat);
+    gl.uniform1f(sh.uOsc1PolarizationAngle, osc1PolarizationAngle);
 
     // Osc2 uniforms.
     gl.uniform1i(sh.uOsc2Enabled, p.osc2Enabled);
@@ -368,6 +408,7 @@ export class Renderer {
     gl.uniform1f(sh.uOsc2Hue, p.osc2Hue);
     gl.uniform1f(sh.uOsc2ColorSat, p.osc2ColorSat);
     gl.uniform1i(sh.uOsc2BlendMode, p.osc2BlendMode);
+    gl.uniform1f(sh.uOsc2PolarizationAngle, osc2PolarizationAngle);
 
     gl.uniform1i(sh.uMirrorMode, p.mirrorMode);
     gl.uniform1f(sh.uKaleidoscopeAngle, p.kaleidoscopeAngle);
