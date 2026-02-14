@@ -107,7 +107,7 @@ async function main() {
   renderer.start(params);
 
   // Initialize the overlay UI (controls, keyboard shortcuts, presets).
-  initUI();
+  initUI(renderer);
 
   // Expose params globally for console tweaking.
   window.__params = params;

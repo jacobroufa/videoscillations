@@ -452,6 +452,354 @@
       font-size: 9px;
       color: var(--ui-text);
     }
+
+    /* ---- Top-level tab bar ---- */
+    .tab-bar {
+      display: flex;
+      gap: 2px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid var(--ui-border);
+      padding-bottom: 6px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      font-family: var(--ui-font);
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 6px 8px;
+      border: 1px solid var(--ui-border);
+      border-radius: 4px 4px 0 0;
+      background: transparent;
+      color: var(--ui-text-dim);
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .tab-btn:hover {
+      background: var(--ui-btn-hover);
+      color: var(--ui-text);
+    }
+
+    .tab-btn.active {
+      background: var(--ui-accent-dim);
+      border-color: var(--ui-accent);
+      color: var(--ui-text);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* ---- Sub-tab bar (Factory / My Presets) ---- */
+    .sub-tab-bar {
+      display: flex;
+      gap: 2px;
+      margin-bottom: 8px;
+    }
+
+    .sub-tab-btn {
+      flex: 1;
+      font-family: var(--ui-font);
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 5px 6px;
+      border: 1px solid var(--ui-border);
+      border-radius: 3px;
+      background: transparent;
+      color: var(--ui-text-dim);
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .sub-tab-btn:hover {
+      background: var(--ui-btn-hover);
+      color: var(--ui-text);
+    }
+
+    .sub-tab-btn.active {
+      background: var(--ui-accent-dim);
+      border-color: var(--ui-accent);
+      color: var(--ui-text);
+    }
+
+    .sub-tab-content {
+      display: none;
+    }
+
+    .sub-tab-content.active {
+      display: block;
+    }
+
+    /* ---- Preset grid ---- */
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    /* ---- Preset card ---- */
+    .preset-card {
+      position: relative;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--ui-border);
+      border-radius: 4px;
+      cursor: pointer;
+      overflow: hidden;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .preset-card:hover {
+      border-color: var(--ui-accent-dim);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .preset-card.read-only {
+      border-left: 2px solid rgba(0, 220, 255, 0.2);
+    }
+
+    .preset-card .thumbnail {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      display: block;
+    }
+
+    .preset-card .placeholder-thumb {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      background: rgba(255, 255, 255, 0.03);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: var(--ui-text-dim);
+      opacity: 0.3;
+    }
+
+    .preset-card .card-name {
+      font-family: var(--ui-font);
+      font-size: 9px;
+      color: var(--ui-text);
+      padding: 4px 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ---- Hover actions overlay ---- */
+    .preset-card .hover-actions {
+      position: absolute;
+      top: 0;
+      right: 0;
+      display: flex;
+      gap: 2px;
+      padding: 3px;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    .preset-card:hover .hover-actions {
+      opacity: 1;
+    }
+
+    .hover-actions .action-icon {
+      width: 22px;
+      height: 22px;
+      border: none;
+      border-radius: 3px;
+      background: rgba(0, 0, 0, 0.7);
+      color: var(--ui-text);
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.1s ease;
+      font-family: var(--ui-font);
+    }
+
+    .hover-actions .action-icon:hover {
+      background: rgba(0, 220, 255, 0.4);
+    }
+
+    .hover-actions .action-icon.danger:hover {
+      background: rgba(255, 60, 60, 0.5);
+    }
+
+    /* ---- Screenshot delete button (bottom-right of thumbnail) ---- */
+    .preset-card .screenshot-actions {
+      position: absolute;
+      bottom: 24px;
+      right: 0;
+      display: flex;
+      gap: 2px;
+      padding: 3px;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    .preset-card:hover .screenshot-actions {
+      opacity: 1;
+    }
+
+    /* ---- Info notice ---- */
+    .info-notice {
+      background: rgba(0, 220, 255, 0.06);
+      border: 1px solid rgba(0, 220, 255, 0.15);
+      border-radius: 4px;
+      padding: 6px 8px;
+      margin-bottom: 8px;
+      font-size: 9px;
+      color: var(--ui-text-dim);
+      line-height: 1.5;
+    }
+
+    .info-notice .notice-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .info-notice .notice-header span {
+      font-weight: 600;
+      color: var(--ui-accent);
+      font-size: 9px;
+    }
+
+    .info-notice .notice-dismiss {
+      background: none;
+      border: none;
+      color: var(--ui-text-dim);
+      font-family: var(--ui-font);
+      font-size: 10px;
+      cursor: pointer;
+      padding: 0 2px;
+    }
+
+    .info-notice .notice-body {
+      margin-top: 4px;
+    }
+
+    .info-notice.collapsed .notice-body {
+      display: none;
+    }
+
+    /* ---- Save / Import / Export buttons ---- */
+    .save-btn, .import-btn, .export-btn {
+      font-family: var(--ui-font);
+      font-size: 9px;
+      padding: 5px 8px;
+      border: 1px solid var(--ui-accent-dim);
+      border-radius: 3px;
+      background: transparent;
+      color: var(--ui-accent);
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .save-btn:hover, .import-btn:hover, .export-btn:hover {
+      background: var(--ui-btn-hover);
+    }
+
+    .save-btn {
+      width: 100%;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .import-export-row {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    .import-export-row .import-btn,
+    .import-export-row .export-btn {
+      flex: 1;
+    }
+
+    /* ---- Inline edit ---- */
+    .inline-edit {
+      font-family: var(--ui-font);
+      font-size: 9px;
+      padding: 2px 4px;
+      border: 1px solid var(--ui-accent);
+      border-radius: 2px;
+      background: rgba(0, 0, 0, 0.8);
+      color: var(--ui-text);
+      width: calc(100% - 12px);
+      margin: 2px 6px;
+      outline: none;
+    }
+
+    /* ---- Confirm delete ---- */
+    .confirm-delete {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      z-index: 10;
+      border-radius: 4px;
+    }
+
+    .confirm-delete span {
+      font-family: var(--ui-font);
+      font-size: 9px;
+      color: var(--ui-text);
+    }
+
+    .confirm-delete .confirm-btns {
+      display: flex;
+      gap: 4px;
+    }
+
+    .confirm-delete button {
+      font-family: var(--ui-font);
+      font-size: 9px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      border: 1px solid var(--ui-border);
+      background: var(--ui-btn-bg);
+      color: var(--ui-text);
+    }
+
+    .confirm-delete button.confirm-yes {
+      border-color: rgba(255, 60, 60, 0.5);
+      color: #f66;
+    }
+
+    .confirm-delete button.confirm-yes:hover {
+      background: rgba(255, 60, 60, 0.3);
+    }
+
+    .confirm-delete button.confirm-no:hover {
+      background: var(--ui-btn-hover);
+    }
+
+    /* ---- Empty state ---- */
+    .empty-state {
+      text-align: center;
+      padding: 20px 10px;
+      color: var(--ui-text-dim);
+      font-size: 10px;
+      line-height: 1.6;
+    }
   </style>
 </head>
 <body>

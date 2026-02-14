@@ -4,9 +4,20 @@
  * Creates a translucent control panel on the right side of the screen
  * that auto-hides after inactivity. All controls map directly to the
  * params object in params.js.
+ *
+ * The panel has two top-level tabs:
+ *   1. Controls -- parameter sliders and action buttons
+ *   2. Presets  -- Factory (read-only) and My Presets (user CRUD)
  */
 
-import { params, getDefaults, presets } from './params.js';
+import { params, getDefaults } from './params.js';
+import { loadBuiltInPresets } from './presets/index.js';
+import {
+  savePreset, loadAllPresets, deletePreset, renamePreset,
+  getScreenshot, deleteScreenshot, updateScreenshot,
+  exportPresets, importPresets,
+} from './preset-store.js';
+import { captureScreenshot, createThumbnail } from './screenshot.js';
 
 // -------------------------------------------------------------------------
 // Control definitions -- maps each param to its slider config.
@@ -101,7 +112,6 @@ const GROUPS = ['Feedback', 'Shape', 'Oscillator 2', 'Movement', 'Color'];
 
 // -------------------------------------------------------------------------
 // Weighted random ranges for "randomize with taste".
-// Each entry: [min, max] -- biased toward values that look good.
 // -------------------------------------------------------------------------
 
 const RANDOM_RANGES = {
@@ -110,11 +120,11 @@ const RANDOM_RANGES = {
   feedbackXShift:     { min: -0.005, max: 0.005 },
   feedbackYShift:     { min: -0.005, max: 0.005 },
   feedbackDecay:      { min: 0.91,   max: 0.99  },
-  mirrorMode:         { min: 0,      max: 6     },   // integer, handled specially
+  mirrorMode:         { min: 0,      max: 6     },
   kaleidoscopeAngle:  { min: 0.0,    max: 6.283 },
-  mirrorTarget:       { min: 0,      max: 3     },   // integer, handled specially
-  feedbackBlendMode:  { min: 0,      max: 3     },   // integer, handled specially
-  shapeWaveform:      { min: 0,      max: 5     },   // integer, handled specially
+  mirrorTarget:       { min: 0,      max: 3     },
+  feedbackBlendMode:  { min: 0,      max: 3     },
+  shapeWaveform:      { min: 0,      max: 5     },
   shapeFrequency:     { min: 1.0,    max: 12.0  },
   shapeAngle:         { min: 0.0,    max: 6.283 },
   shapeThickness:     { min: 0.1,    max: 0.9   },
@@ -122,14 +132,14 @@ const RANDOM_RANGES = {
   shapePhaseOffset:   { min: 0.0,    max: 6.283 },
   polarizationAngle:  { min: 0.0,    max: 6.283 },
   polarizationSpeed:  { min: -0.5,   max: 0.5   },
-  angleLFOEnabled:    { min: 0,      max: 1     },   // integer, handled specially
-  angleLFOWaveform:   { min: 0,      max: 4     },   // integer, handled specially
+  angleLFOEnabled:    { min: 0,      max: 1     },
+  angleLFOWaveform:   { min: 0,      max: 4     },
   angleLFORate:       { min: 0.05,   max: 2.0   },
   angleLFODepth:      { min: 0.0,    max: 1.57  },
-  shapeFractalAmount: { min: 0,      max: 6     },   // integer, handled specially
+  shapeFractalAmount: { min: 0,      max: 6     },
   shapeFractalAngle:  { min: 0.0,    max: 6.283 },
-  osc2Enabled:        { min: 0,      max: 1     },   // integer, handled specially
-  osc2Waveform:       { min: 0,      max: 5     },   // integer, handled specially
+  osc2Enabled:        { min: 0,      max: 1     },
+  osc2Waveform:       { min: 0,      max: 5     },
   osc2Frequency:      { min: 1.0,    max: 12.0  },
   osc2Angle:          { min: 0.0,    max: 6.283 },
   osc2Thickness:      { min: 0.1,    max: 0.9   },
@@ -137,14 +147,14 @@ const RANDOM_RANGES = {
   osc2PhaseOffset:    { min: 0.0,    max: 6.283 },
   osc2Hue:            { min: 0.0,    max: 1.0   },
   osc2ColorSat:       { min: 0.3,    max: 1.0   },
-  osc2BlendMode:      { min: 0,      max: 4     },   // integer, handled specially
-  osc2MovementMode:   { min: 0,      max: 5     },   // integer, handled specially
+  osc2BlendMode:      { min: 0,      max: 4     },
+  osc2MovementMode:   { min: 0,      max: 5     },
   osc2MovementSpeed:  { min: 0.1,    max: 3.0   },
   osc2MovementAmplitude: { min: 0.1, max: 0.45  },
   osc2MovementPhase:  { min: 0.0,    max: 6.283 },
-  osc2FractalAmount:  { min: 0,      max: 6     },   // integer, handled specially
+  osc2FractalAmount:  { min: 0,      max: 6     },
   osc2FractalAngle:   { min: 0.0,    max: 6.283 },
-  movementMode:           { min: 0,      max: 5     },   // integer, handled specially
+  movementMode:           { min: 0,      max: 5     },
   movementAmplitude:      { min: 0.1,    max: 0.45  },
   movementPhase:          { min: 0.0,    max: 6.283 },
   movementLissajousRatio: { min: 0.1,    max: 2.5   },
@@ -158,8 +168,8 @@ const RANDOM_RANGES = {
   saturation:           { min: 0.6,    max: 1.6   },
   shapeHue:             { min: 0.0,    max: 1.0   },
   shapeColorSat:        { min: 0.3,    max: 1.0   },
-  colorMode:            { min: 0,      max: 4     },   // integer, handled specially
-  colorPosterizeLevels: { min: 2,      max: 12    },   // integer, handled specially
+  colorMode:            { min: 0,      max: 4     },
+  colorPosterizeLevels: { min: 2,      max: 12    },
   colorGradientHue1:    { min: 0.0,    max: 1.0   },
   colorGradientHue2:    { min: 0.0,    max: 1.0   },
   colorGradientHue3:    { min: 0.0,    max: 1.0   },
@@ -173,20 +183,31 @@ let panel = null;
 let hideTimeout = null;
 let mouseOverPanel = false;
 let sliderElements = {};  // key -> input element, for syncing on preset/reset
-let waveformButtons = []; // waveform selector buttons, for syncing on preset/reset
-let movementModeButtons = []; // movement mode selector buttons, for syncing on preset/reset
-let colorModeButtons = []; // color mode selector buttons, for syncing on preset/reset
-let mirrorModeButtons = []; // mirror mode selector buttons, for syncing on preset/reset
-let mirrorTargetButtons = []; // mirror target selector buttons, for syncing on preset/reset
-let blendModeButtons = []; // blend mode selector buttons, for syncing on preset/reset
-let osc2WaveformButtons = []; // Osc2 waveform selector buttons
-let osc2BlendModeButtons = []; // Osc2 blend mode selector buttons
-let osc2MovementModeButtons = []; // Osc2 movement mode selector buttons
-let angleLFOToggleBtn = null; // Angle LFO enable toggle button
-let angleLFOWaveformButtons = []; // Angle LFO waveform selector buttons
-let osc2EnableBtn = null; // Osc2 enable toggle button
-let osc2ControlsContainer = null; // Container for Osc2 controls (collapsible)
-let angleLFOControlsContainer = null; // Container for angle LFO controls (collapsible)
+let waveformButtons = [];
+let movementModeButtons = [];
+let colorModeButtons = [];
+let mirrorModeButtons = [];
+let mirrorTargetButtons = [];
+let blendModeButtons = [];
+let osc2WaveformButtons = [];
+let osc2BlendModeButtons = [];
+let osc2MovementModeButtons = [];
+let angleLFOToggleBtn = null;
+let angleLFOWaveformButtons = [];
+let osc2EnableBtn = null;
+let osc2ControlsContainer = null;
+let angleLFOControlsContainer = null;
+
+// Renderer reference for screenshot capture.
+let _renderer = null;
+
+// Preset data caches.
+let _builtInPresets = [];
+let _userPresets = [];
+
+// DOM references for preset tabs.
+let _factoryGrid = null;
+let _userGrid = null;
 
 const HIDE_DELAY = 3000; // ms
 
@@ -203,29 +224,61 @@ function createPanel() {
   panel.addEventListener('mouseenter', () => { mouseOverPanel = true; clearHideTimeout(); });
   panel.addEventListener('mouseleave', () => { mouseOverPanel = false; scheduleHide(); });
 
-  // -- Preset selector ----------------------------------------------------
-  const presetSection = document.createElement('div');
-  presetSection.className = 'panel-section';
+  // -- Top-level tab bar --------------------------------------------------
+  const tabBar = document.createElement('div');
+  tabBar.className = 'tab-bar';
 
-  const presetLabel = document.createElement('h3');
-  presetLabel.className = 'section-label';
-  presetLabel.textContent = 'Presets';
-  presetSection.appendChild(presetLabel);
+  const controlsTabBtn = document.createElement('button');
+  controlsTabBtn.className = 'tab-btn active';
+  controlsTabBtn.textContent = 'Controls';
 
-  const presetRow = document.createElement('div');
-  presetRow.className = 'preset-row';
+  const presetsTabBtn = document.createElement('button');
+  presetsTabBtn.className = 'tab-btn';
+  presetsTabBtn.textContent = 'Presets';
 
-  for (const name of Object.keys(presets)) {
-    const btn = document.createElement('button');
-    btn.className = 'preset-btn';
-    btn.textContent = name;
-    btn.addEventListener('click', () => applyPreset(name));
-    presetRow.appendChild(btn);
-  }
+  tabBar.appendChild(controlsTabBtn);
+  tabBar.appendChild(presetsTabBtn);
+  panel.appendChild(tabBar);
 
-  presetSection.appendChild(presetRow);
-  panel.appendChild(presetSection);
+  // -- Controls tab content -----------------------------------------------
+  const controlsTab = document.createElement('div');
+  controlsTab.className = 'tab-content active';
+  controlsTab.id = 'controls-tab';
 
+  buildControlsContent(controlsTab);
+  panel.appendChild(controlsTab);
+
+  // -- Presets tab content ------------------------------------------------
+  const presetsTab = document.createElement('div');
+  presetsTab.className = 'tab-content';
+  presetsTab.id = 'presets-tab';
+
+  buildPresetsContent(presetsTab);
+  panel.appendChild(presetsTab);
+
+  // -- Tab switching logic ------------------------------------------------
+  controlsTabBtn.addEventListener('click', () => {
+    controlsTabBtn.classList.add('active');
+    presetsTabBtn.classList.remove('active');
+    controlsTab.classList.add('active');
+    presetsTab.classList.remove('active');
+  });
+
+  presetsTabBtn.addEventListener('click', () => {
+    presetsTabBtn.classList.add('active');
+    controlsTabBtn.classList.remove('active');
+    presetsTab.classList.add('active');
+    controlsTab.classList.remove('active');
+  });
+
+  document.body.appendChild(panel);
+}
+
+// -------------------------------------------------------------------------
+// Controls tab builder (existing UI moved under a tab)
+// -------------------------------------------------------------------------
+
+function buildControlsContent(container) {
   // -- Action buttons -----------------------------------------------------
   const actionsSection = document.createElement('div');
   actionsSection.className = 'panel-section actions-row';
@@ -248,7 +301,7 @@ function createPanel() {
   actionsSection.appendChild(randomBtn);
   actionsSection.appendChild(resetBtn);
   actionsSection.appendChild(fullscreenBtn);
-  panel.appendChild(actionsSection);
+  container.appendChild(actionsSection);
 
   // -- Grouped parameter sliders ------------------------------------------
   for (const group of GROUPS) {
@@ -323,16 +376,493 @@ function createPanel() {
       }
     }
 
-    panel.appendChild(section);
+    container.appendChild(section);
   }
 
   // -- Keyboard hint at the bottom ----------------------------------------
   const hint = document.createElement('div');
   hint.className = 'keyboard-hint';
-  hint.innerHTML = '<kbd>Tab</kbd> toggle UI &nbsp; <kbd>Space</kbd> randomize &nbsp; <kbd>R</kbd> reset &nbsp; <kbd>F</kbd> fullscreen';
-  panel.appendChild(hint);
+  hint.innerHTML = '<kbd>Tab</kbd> toggle UI &nbsp; <kbd>Space</kbd> randomize &nbsp; <kbd>R</kbd> reset &nbsp; <kbd>F</kbd> fullscreen &nbsp; <kbd>S</kbd> save preset';
+  container.appendChild(hint);
+}
 
-  document.body.appendChild(panel);
+// -------------------------------------------------------------------------
+// Presets tab builder
+// -------------------------------------------------------------------------
+
+function buildPresetsContent(container) {
+  // -- Sub-tab bar --------------------------------------------------------
+  const subTabBar = document.createElement('div');
+  subTabBar.className = 'sub-tab-bar';
+
+  const factoryTabBtn = document.createElement('button');
+  factoryTabBtn.className = 'sub-tab-btn active';
+  factoryTabBtn.textContent = 'Factory';
+
+  const myPresetsTabBtn = document.createElement('button');
+  myPresetsTabBtn.className = 'sub-tab-btn';
+  myPresetsTabBtn.textContent = 'My Presets';
+
+  subTabBar.appendChild(factoryTabBtn);
+  subTabBar.appendChild(myPresetsTabBtn);
+  container.appendChild(subTabBar);
+
+  // -- Factory sub-tab content --------------------------------------------
+  const factoryContent = document.createElement('div');
+  factoryContent.className = 'sub-tab-content active';
+
+  _factoryGrid = document.createElement('div');
+  _factoryGrid.className = 'preset-grid';
+  factoryContent.appendChild(_factoryGrid);
+  container.appendChild(factoryContent);
+
+  // -- My Presets sub-tab content -----------------------------------------
+  const myPresetsContent = document.createElement('div');
+  myPresetsContent.className = 'sub-tab-content';
+
+  // Save button
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'save-btn';
+  saveBtn.textContent = 'Save Current (S)';
+  saveBtn.addEventListener('click', handleSavePreset);
+  myPresetsContent.appendChild(saveBtn);
+
+  // Info notice
+  const notice = createInfoNotice();
+  myPresetsContent.appendChild(notice);
+
+  // Import / Export row
+  const ioRow = document.createElement('div');
+  ioRow.className = 'import-export-row';
+
+  const importBtn = document.createElement('button');
+  importBtn.className = 'import-btn';
+  importBtn.textContent = 'Import';
+  importBtn.addEventListener('click', handleImport);
+
+  const exportBtn = document.createElement('button');
+  exportBtn.className = 'export-btn';
+  exportBtn.textContent = 'Export';
+  exportBtn.addEventListener('click', handleExport);
+
+  ioRow.appendChild(importBtn);
+  ioRow.appendChild(exportBtn);
+  myPresetsContent.appendChild(ioRow);
+
+  _userGrid = document.createElement('div');
+  _userGrid.className = 'preset-grid';
+  myPresetsContent.appendChild(_userGrid);
+
+  container.appendChild(myPresetsContent);
+
+  // -- Sub-tab switching --------------------------------------------------
+  factoryTabBtn.addEventListener('click', () => {
+    factoryTabBtn.classList.add('active');
+    myPresetsTabBtn.classList.remove('active');
+    factoryContent.classList.add('active');
+    myPresetsContent.classList.remove('active');
+  });
+
+  myPresetsTabBtn.addEventListener('click', () => {
+    myPresetsTabBtn.classList.add('active');
+    factoryTabBtn.classList.remove('active');
+    myPresetsContent.classList.add('active');
+    factoryContent.classList.remove('active');
+  });
+}
+
+// -------------------------------------------------------------------------
+// Info notice
+// -------------------------------------------------------------------------
+
+function createInfoNotice() {
+  const notice = document.createElement('div');
+  notice.className = 'info-notice';
+
+  const collapsed = localStorage.getItem('hypnewcade-notice-collapsed') === 'true';
+  if (collapsed) notice.classList.add('collapsed');
+
+  const header = document.createElement('div');
+  header.className = 'notice-header';
+
+  const label = document.createElement('span');
+  label.textContent = 'Info';
+
+  const dismissBtn = document.createElement('button');
+  dismissBtn.className = 'notice-dismiss';
+  dismissBtn.textContent = collapsed ? '+' : '-';
+
+  header.appendChild(label);
+  header.appendChild(dismissBtn);
+
+  const body = document.createElement('div');
+  body.className = 'notice-body';
+  body.textContent = 'Your presets are saved in this browser. Use Export to back them up or transfer to another device.';
+
+  header.addEventListener('click', () => {
+    const isCollapsed = notice.classList.toggle('collapsed');
+    dismissBtn.textContent = isCollapsed ? '+' : '-';
+    localStorage.setItem('hypnewcade-notice-collapsed', isCollapsed);
+  });
+
+  notice.appendChild(header);
+  notice.appendChild(body);
+
+  return notice;
+}
+
+// -------------------------------------------------------------------------
+// Preset card creation
+// -------------------------------------------------------------------------
+
+/**
+ * Create a preset card element.
+ * @param {object} preset - Preset data object with id, name, builtIn, params.
+ * @param {string|null} thumbnailURL - Object URL for the thumbnail or null.
+ * @param {boolean} isBuiltIn - Whether this is a factory preset.
+ * @returns {HTMLElement}
+ */
+function createPresetCard(preset, thumbnailURL, isBuiltIn) {
+  const card = document.createElement('div');
+  card.className = 'preset-card' + (isBuiltIn ? ' read-only' : '');
+  card.dataset.presetId = preset.id;
+
+  // Thumbnail area
+  if (thumbnailURL) {
+    const img = document.createElement('img');
+    img.className = 'thumbnail';
+    img.src = thumbnailURL;
+    img.alt = preset.name;
+    card.appendChild(img);
+  } else {
+    const placeholder = document.createElement('div');
+    placeholder.className = 'placeholder-thumb';
+    placeholder.textContent = '~';
+    card.appendChild(placeholder);
+  }
+
+  // Name
+  const nameEl = document.createElement('div');
+  nameEl.className = 'card-name';
+  nameEl.textContent = preset.name;
+  card.appendChild(nameEl);
+
+  // Click to load preset
+  card.addEventListener('click', (e) => {
+    // Don't load if clicking an action button, input, or confirm dialog
+    if (e.target.closest('.hover-actions') || e.target.closest('.screenshot-actions') ||
+        e.target.closest('.confirm-delete') || e.target.closest('.inline-edit')) {
+      return;
+    }
+    applyPresetData(preset.params);
+  });
+
+  // Hover actions (only for user presets)
+  if (!isBuiltIn) {
+    const hoverActions = document.createElement('div');
+    hoverActions.className = 'hover-actions';
+
+    // Rename
+    const renameBtn = document.createElement('button');
+    renameBtn.className = 'action-icon';
+    renameBtn.title = 'Rename';
+    renameBtn.textContent = '\u270E'; // pencil
+    renameBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      startInlineRename(card, preset);
+    });
+
+    // Re-capture screenshot
+    const cameraBtn = document.createElement('button');
+    cameraBtn.className = 'action-icon';
+    cameraBtn.title = 'Re-capture screenshot';
+    cameraBtn.textContent = '\u25CE'; // bullseye / camera-like
+    cameraBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleRecapture(card, preset);
+    });
+
+    // Delete preset
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'action-icon danger';
+    deleteBtn.title = 'Delete preset';
+    deleteBtn.textContent = '\u2715'; // X mark
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showDeleteConfirm(card, preset);
+    });
+
+    hoverActions.appendChild(renameBtn);
+    hoverActions.appendChild(cameraBtn);
+    hoverActions.appendChild(deleteBtn);
+    card.appendChild(hoverActions);
+
+    // Screenshot-specific actions (bottom-right, only if screenshot exists)
+    if (thumbnailURL) {
+      const screenshotActions = document.createElement('div');
+      screenshotActions.className = 'screenshot-actions';
+
+      const removeScreenBtn = document.createElement('button');
+      removeScreenBtn.className = 'action-icon danger';
+      removeScreenBtn.title = 'Remove screenshot';
+      removeScreenBtn.textContent = '\u2715';
+      removeScreenBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleDeleteScreenshot(card, preset);
+      });
+
+      screenshotActions.appendChild(removeScreenBtn);
+      card.appendChild(screenshotActions);
+    }
+  }
+
+  return card;
+}
+
+// -------------------------------------------------------------------------
+// Inline rename
+// -------------------------------------------------------------------------
+
+function startInlineRename(card, preset) {
+  const nameEl = card.querySelector('.card-name');
+  if (!nameEl) return;
+
+  const input = document.createElement('input');
+  input.className = 'inline-edit';
+  input.type = 'text';
+  input.value = preset.name;
+
+  nameEl.style.display = 'none';
+  card.appendChild(input);
+  input.focus();
+  input.select();
+
+  const finish = async () => {
+    const newName = input.value.trim();
+    if (newName && newName !== preset.name) {
+      await renamePreset(preset.id, newName);
+      preset.name = newName;
+      nameEl.textContent = newName;
+    }
+    nameEl.style.display = '';
+    if (input.parentNode) input.remove();
+  };
+
+  input.addEventListener('blur', finish);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      input.blur();
+    }
+    if (e.key === 'Escape') {
+      input.value = preset.name; // revert
+      input.blur();
+    }
+  });
+}
+
+// -------------------------------------------------------------------------
+// Delete confirmation
+// -------------------------------------------------------------------------
+
+function showDeleteConfirm(card, preset) {
+  // Remove any existing confirm dialog
+  const existing = card.querySelector('.confirm-delete');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-delete';
+
+  const msg = document.createElement('span');
+  msg.textContent = 'Delete?';
+
+  const btns = document.createElement('div');
+  btns.className = 'confirm-btns';
+
+  const yesBtn = document.createElement('button');
+  yesBtn.className = 'confirm-yes';
+  yesBtn.textContent = 'Yes';
+  yesBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await deletePreset(preset.id);
+    card.remove();
+    // Remove from cache
+    _userPresets = _userPresets.filter(p => p.id !== preset.id);
+  });
+
+  const noBtn = document.createElement('button');
+  noBtn.className = 'confirm-no';
+  noBtn.textContent = 'No';
+  noBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    overlay.remove();
+  });
+
+  btns.appendChild(yesBtn);
+  btns.appendChild(noBtn);
+  overlay.appendChild(msg);
+  overlay.appendChild(btns);
+  card.appendChild(overlay);
+}
+
+// -------------------------------------------------------------------------
+// Screenshot operations on cards
+// -------------------------------------------------------------------------
+
+async function handleDeleteScreenshot(card, preset) {
+  await deleteScreenshot(preset.id);
+  refreshUserPresetCard(card, preset, null);
+}
+
+async function handleRecapture(card, preset) {
+  if (!_renderer) return;
+  _renderer.requestScreenshot(async (canvas) => {
+    try {
+      const blob = await captureScreenshot(canvas);
+      const thumb = await createThumbnail(blob);
+      await updateScreenshot(preset.id, thumb);
+      const url = URL.createObjectURL(thumb);
+      refreshUserPresetCard(card, preset, url);
+    } catch (err) {
+      console.warn('Failed to recapture screenshot:', err);
+    }
+  });
+}
+
+function refreshUserPresetCard(oldCard, preset, thumbnailURL) {
+  const newCard = createPresetCard(preset, thumbnailURL, false);
+  if (oldCard.parentNode) {
+    oldCard.parentNode.replaceChild(newCard, oldCard);
+  }
+}
+
+// -------------------------------------------------------------------------
+// Save preset flow
+// -------------------------------------------------------------------------
+
+async function handleSavePreset() {
+  if (!_renderer) {
+    console.warn('Renderer not available for screenshot capture');
+    return;
+  }
+
+  _renderer.requestScreenshot(async (canvas) => {
+    try {
+      const blob = await captureScreenshot(canvas);
+      const thumb = await createThumbnail(blob);
+
+      const presetData = {
+        name: 'Preset ' + new Date().toLocaleTimeString(),
+        description: '',
+        params: { ...params },
+      };
+
+      const id = await savePreset(presetData, thumb);
+      presetData.id = id;
+      presetData.builtIn = false;
+      presetData.createdAt = new Date().toISOString();
+
+      _userPresets.push(presetData);
+
+      const url = URL.createObjectURL(thumb);
+      const card = createPresetCard(presetData, url, false);
+      _userGrid.appendChild(card);
+
+      // Remove empty state if present
+      const empty = _userGrid.parentNode.querySelector('.empty-state');
+      if (empty) empty.remove();
+    } catch (err) {
+      console.warn('Failed to save preset:', err);
+    }
+  });
+}
+
+// -------------------------------------------------------------------------
+// Import / Export handlers
+// -------------------------------------------------------------------------
+
+async function handleExport() {
+  try {
+    await exportPresets();
+  } catch (err) {
+    console.warn('Failed to export presets:', err);
+  }
+}
+
+async function handleImport() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,application/json';
+
+  input.addEventListener('change', async () => {
+    const file = input.files[0];
+    if (!file) return;
+
+    try {
+      const count = await importPresets(file);
+      console.log(`Imported ${count} presets.`);
+      // Refresh the user presets grid
+      await refreshUserPresetsGrid();
+    } catch (err) {
+      console.warn('Failed to import presets:', err);
+    }
+  });
+
+  input.click();
+}
+
+// -------------------------------------------------------------------------
+// Grid population
+// -------------------------------------------------------------------------
+
+async function populateFactoryPresets() {
+  _builtInPresets = await loadBuiltInPresets();
+
+  _factoryGrid.innerHTML = '';
+  for (const preset of _builtInPresets) {
+    const card = createPresetCard(preset, null, true);
+    _factoryGrid.appendChild(card);
+  }
+}
+
+async function populateUserPresets() {
+  _userPresets = await loadAllPresets();
+  await renderUserPresetsGrid();
+}
+
+async function refreshUserPresetsGrid() {
+  _userPresets = await loadAllPresets();
+  await renderUserPresetsGrid();
+}
+
+async function renderUserPresetsGrid() {
+  _userGrid.innerHTML = '';
+
+  if (_userPresets.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'No saved presets yet. Use "Save Current" or press S to capture the current state.';
+    _userGrid.parentNode.insertBefore(empty, _userGrid);
+    return;
+  }
+
+  // Remove empty state if present
+  const existingEmpty = _userGrid.parentNode.querySelector('.empty-state');
+  if (existingEmpty) existingEmpty.remove();
+
+  for (const preset of _userPresets) {
+    let thumbnailURL = null;
+    try {
+      const blob = await getScreenshot(preset.id);
+      if (blob) {
+        thumbnailURL = URL.createObjectURL(blob);
+      }
+    } catch (e) {
+      // No screenshot available
+    }
+    const card = createPresetCard(preset, thumbnailURL, false);
+    _userGrid.appendChild(card);
+  }
 }
 
 // -------------------------------------------------------------------------
@@ -801,7 +1331,6 @@ function syncBlendModeButtons() {
 
 /** Format a number with a reasonable number of decimals based on step size. */
 function formatValue(val, step) {
-  // Count decimals in step to determine display precision.
   const decimals = Math.max(0, Math.ceil(-Math.log10(step)));
   return val.toFixed(decimals);
 }
@@ -826,7 +1355,7 @@ const ALL_MOVEMENT_PARAMS = [
   'movementSpiralSpeed', 'movementScrollAngle', 'movementScrollSpeed', 'movementBounceSpeed',
 ];
 
-/** Color mode visibility: which param keys are visible per color mode (beyond always-visible ones). */
+/** Color mode visibility: which param keys are visible per color mode. */
 const COLOR_MODE_VISIBILITY = {
   0: [],                                                                    // Direct
   1: ['colorGradientHue1', 'colorGradientHue2', 'colorGradientHue3'],      // Gradient
@@ -835,7 +1364,7 @@ const COLOR_MODE_VISIBILITY = {
   4: [],                                                                    // Thermal
 };
 
-/** Color params that are conditionally visible (not always-visible). */
+/** Color params that are conditionally visible. */
 const CONDITIONAL_COLOR_PARAMS = [
   'colorPosterizeLevels', 'colorGradientHue1', 'colorGradientHue2', 'colorGradientHue3',
 ];
@@ -857,7 +1386,6 @@ const ALL_OSC2_MOVEMENT_PARAMS = [
 
 /**
  * Show or hide a slider row by adding/removing the 'hidden' class.
- * Targets by data-param attribute within the panel.
  */
 function setSliderVisible(paramKey, visible) {
   if (!panel) return;
@@ -871,8 +1399,7 @@ function setSliderVisible(paramKey, visible) {
 }
 
 /**
- * Update the visibility of all conditionally-shown slider rows based on
- * current mode selections (movementMode, mirrorMode, colorMode, osc2, angleLFO).
+ * Update the visibility of all conditionally-shown slider rows.
  */
 function updateControlVisibility() {
   // -- Movement controls --
@@ -881,8 +1408,7 @@ function updateControlVisibility() {
     setSliderVisible(key, visibleMovement.includes(key));
   }
 
-  // -- Kaleidoscope angle (Feedback group) --
-  // Only visible for mirror modes 4 (Kal 2), 5 (Kal 4), 6 (Kal 8).
+  // -- Kaleidoscope angle --
   const kalVisible = params.mirrorMode >= 4 && params.mirrorMode <= 6;
   setSliderVisible('kaleidoscopeAngle', kalVisible);
 
@@ -931,10 +1457,13 @@ function syncSliders() {
 // Actions
 // -------------------------------------------------------------------------
 
-function applyPreset(name) {
-  const preset = presets[name];
-  if (!preset) return;
-  for (const [key, val] of Object.entries(preset)) {
+/**
+ * Apply preset params to the live params object and sync the UI.
+ * Used by both built-in and user presets.
+ */
+function applyPresetData(presetParams) {
+  if (!presetParams) return;
+  for (const [key, val] of Object.entries(presetParams)) {
     params[key] = val;
   }
   syncSliders();
@@ -1031,14 +1560,13 @@ function setupEvents() {
 
   // Keyboard shortcuts.
   document.addEventListener('keydown', (e) => {
-    // Ignore if focus is on an input element (let sliders work normally).
-    if (e.target.tagName === 'INPUT') return;
+    // Ignore if focus is on an input element (let sliders and inline edits work normally).
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
     switch (e.key) {
       case 'Tab':
         e.preventDefault();
         panel.classList.toggle('visible');
-        // If we just showed it, schedule a hide; if hidden, clear the timeout.
         if (panel.classList.contains('visible')) {
           scheduleHide();
         } else {
@@ -1062,6 +1590,12 @@ function setupEvents() {
         e.preventDefault();
         toggleFullscreen();
         break;
+
+      case 's':
+      case 'S':
+        e.preventDefault();
+        handleSavePreset();
+        break;
     }
   });
 }
@@ -1072,9 +1606,20 @@ function setupEvents() {
 
 /**
  * Initialize the overlay UI. Call once after the renderer is running.
+ * @param {import('./renderer.js').Renderer} renderer - Renderer instance for screenshot capture.
  */
-export function initUI() {
+export function initUI(renderer) {
+  _renderer = renderer;
+
   createPanel();
   updateControlVisibility();
   setupEvents();
+
+  // Load presets asynchronously (non-blocking).
+  populateFactoryPresets().catch((err) => {
+    console.warn('Failed to load factory presets:', err);
+  });
+  populateUserPresets().catch((err) => {
+    console.warn('Failed to load user presets:', err);
+  });
 }

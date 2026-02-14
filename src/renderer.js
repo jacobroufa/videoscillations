@@ -56,6 +56,9 @@ export class Renderer {
     // Angle LFO internal state.
     this._angleLFOLastSH = 0.0;       // Random S&H: last held value
     this._angleLFOLastSHTime = 0.0;   // Random S&H: time of last sample
+
+    // Screenshot capture callback (set via requestScreenshot).
+    this._screenshotCallback = null;
   }
 
   /**
@@ -88,6 +91,16 @@ export class Renderer {
   stop() {
     this._running = false;
     cancelAnimationFrame(this._rafId);
+  }
+
+  /**
+   * Request a screenshot capture on the next frame.
+   * The callback receives the canvas element after the display pass
+   * completes (while pixel data is still valid before swap).
+   * @param {function(HTMLCanvasElement): void} callback
+   */
+  requestScreenshot(callback) {
+    this._screenshotCallback = callback;
   }
 
   // ------------------------------------------------------------------
@@ -392,6 +405,17 @@ export class Renderer {
     gl.uniform1i(dp.uMirrorTarget, p.mirrorTarget);
 
     drawFullscreenQuad(gl, this.quadVAO);
+
+    // ------------------------------------------------------------------
+    // Screenshot capture (after display pass, before swap).
+    // The canvas has valid pixel data right now since we just rendered
+    // the display pass to the default framebuffer.
+    // ------------------------------------------------------------------
+    if (this._screenshotCallback) {
+      const cb = this._screenshotCallback;
+      this._screenshotCallback = null;
+      cb(gl.canvas);
+    }
 
     // ------------------------------------------------------------------
     // Swap ping-pong buffers for next frame.
