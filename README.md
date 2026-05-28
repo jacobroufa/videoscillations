@@ -71,3 +71,7 @@ src/
   migrations/           # Preset schema migrations
   shaders/              # GLSL: shape, feedback, composite, fullscreen vert
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE). Copy, modify, and use it however you like; just keep the copyright notice and license text with substantial copies.
