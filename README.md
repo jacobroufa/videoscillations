@@ -4,6 +4,8 @@ A browser-based video synthesizer. Two procedural oscillators are blended into a
 
 Built with vanilla JavaScript ES modules and WebGL 2. No build step, no dependencies.
 
+**Live demo:** [videoscillations.roufa.art](https://videoscillations.roufa.art)
+
 ## Running
 
 Because the app uses ES modules and `fetch` to load shaders and presets, it needs to be served over HTTP (opening `index.html` directly via `file://` will not work).
