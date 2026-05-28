@@ -27,3 +27,8 @@ Thumbs.db
 
 # Test coverage
 coverage/
+
+# Claude Code / local dev notes
+.claude/
+prompts/
+CLAUDE.md
