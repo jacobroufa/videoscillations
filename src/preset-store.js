@@ -1,7 +1,7 @@
 /**
  * IndexedDB-backed storage for user presets.
  *
- * Database: hypnewcade-presets, version 1
+ * Database: videoscillations-presets, version 1
  * Object stores:
  *   - presets   -- preset JSON objects keyed by id
  *   - screenshots -- screenshot Blob data keyed by preset id
@@ -9,7 +9,7 @@
 
 import { CURRENT_VERSION, migratePreset, needsMigration } from './migrations/index.js';
 
-const DB_NAME = 'hypnewcade-presets';
+const DB_NAME = 'videoscillations-presets';
 const DB_VERSION = 1;
 
 // -------------------------------------------------------------------------
@@ -335,7 +335,7 @@ export async function exportPresets() {
 
   const a = document.createElement('a');
   a.href = url;
-  a.download = `hypnewcade-presets-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `videoscillations-presets-${new Date().toISOString().slice(0, 10)}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

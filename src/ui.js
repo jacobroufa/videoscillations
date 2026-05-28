@@ -1,5 +1,5 @@
 /**
- * Overlay UI for the Hypnewcade video synthesizer.
+ * Overlay UI for the videoscillations video synthesizer.
  *
  * Creates a translucent control panel on the right side of the screen
  * that auto-hides after inactivity. All controls map directly to the
@@ -814,7 +814,7 @@ function createInfoNotice() {
   const notice = document.createElement('div');
   notice.className = 'info-notice';
 
-  const collapsed = localStorage.getItem('hypnewcade-notice-collapsed') === 'true';
+  const collapsed = localStorage.getItem('videoscillations-notice-collapsed') === 'true';
   if (collapsed) notice.classList.add('collapsed');
 
   const header = document.createElement('div');
@@ -837,7 +837,7 @@ function createInfoNotice() {
   header.addEventListener('click', () => {
     const isCollapsed = notice.classList.toggle('collapsed');
     dismissBtn.textContent = isCollapsed ? '+' : '-';
-    localStorage.setItem('hypnewcade-notice-collapsed', isCollapsed);
+    localStorage.setItem('videoscillations-notice-collapsed', isCollapsed);
   });
 
   notice.appendChild(header);

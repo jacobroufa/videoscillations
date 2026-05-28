@@ -1,5 +1,5 @@
 /**
- * Entry point for the Hypnewcade video synthesizer.
+ * Entry point for the videoscillations video synthesizer.
  *
  * Initializes WebGL, compiles shaders, creates framebuffers,
  * and starts the render loop.
@@ -119,14 +119,14 @@ async function main() {
   window.__params = params;
 
   console.log(
-    '%c Hypnewcade ',
+    '%c videoscillations ',
     'background: #111; color: #0ff; font-size: 14px; padding: 4px 8px;',
     'Video synthesizer running. Move mouse or press Tab to show controls.'
   );
 }
 
 main().catch((err) => {
-  console.error('Hypnewcade initialization failed:', err);
+  console.error('videoscillations initialization failed:', err);
   document.body.style.color = '#f44';
   document.body.style.fontFamily = 'monospace';
   document.body.style.padding = '2em';
